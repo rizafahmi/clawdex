@@ -77,7 +77,7 @@ defmodule Clawdex.Session do
 
   @impl true
   def handle_call({:append, message}, _from, state) do
-    persist_message(state.store_id, message)
+    Task.start(fn -> persist_message(state.store_id, message) end)
 
     messages =
       (state.messages ++ [message])
@@ -94,7 +94,7 @@ defmodule Clawdex.Session do
 
   @impl true
   def handle_call(:reset, _from, state) do
-    clear_store(state.store_id)
+    Task.start(fn -> clear_store(state.store_id) end)
     state = %{state | messages: [], model_override: nil, last_active_at: DateTime.utc_now()}
     {:reply, :ok, state, @idle_timeout}
   end
@@ -114,7 +114,7 @@ defmodule Clawdex.Session do
 
   @impl true
   def handle_call({:set_model, model}, _from, state) do
-    persist_model_override(state.store_id, model)
+    Task.start(fn -> persist_model_override(state.store_id, model) end)
     state = %{state | model_override: model, last_active_at: DateTime.utc_now()}
     {:reply, :ok, state, @idle_timeout}
   end
