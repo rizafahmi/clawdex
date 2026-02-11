@@ -4,7 +4,7 @@ defmodule Clawdex.LLM.Gemini do
   @behaviour Clawdex.LLM.Behaviour
 
   # Default to Gemini 3.0 Pro
-  @default_model "gemini-3.0-pro-exp"
+  @default_model "gemini-2.5-flash"
   @timeout 120_000
 
   @impl true

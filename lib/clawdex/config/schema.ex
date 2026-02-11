@@ -4,21 +4,29 @@ defmodule Clawdex.Config.Schema do
   defstruct [
     :agent,
     :gemini,
+    :openrouter,
     :channels
   ]
 
   @type t :: %__MODULE__{
           agent: agent(),
           gemini: gemini(),
+          openrouter: openrouter() | nil,
           channels: channels()
         }
 
   @type agent :: %{
           model: String.t(),
-          system_prompt: String.t()
+          system_prompt: String.t(),
+          max_history_messages: integer(),
+          context_window_percent: integer()
         }
 
   @type gemini :: %{
+          api_key: String.t()
+        }
+
+  @type openrouter :: %{
           api_key: String.t()
         }
 
@@ -39,6 +47,7 @@ defmodule Clawdex.Config.Schema do
        %__MODULE__{
          agent: agent,
          gemini: gemini,
+         openrouter: validate_openrouter(raw),
          channels: channels
        }}
     end
@@ -50,7 +59,9 @@ defmodule Clawdex.Config.Schema do
     {:ok,
      %{
        model: model,
-       system_prompt: Map.get(agent, "systemPrompt", "You are a helpful personal assistant.")
+       system_prompt: Map.get(agent, "systemPrompt", "You are a helpful personal assistant."),
+       max_history_messages: Map.get(agent, "maxHistoryMessages", 50),
+       context_window_percent: Map.get(agent, "contextWindowPercent", 80)
      }}
   end
 
@@ -68,6 +79,13 @@ defmodule Clawdex.Config.Schema do
       key -> {:ok, %{api_key: key}}
     end
   end
+
+  defp validate_openrouter(%{"openrouter" => %{"apiKey" => key}})
+       when is_binary(key) and key != "" do
+    %{api_key: key}
+  end
+
+  defp validate_openrouter(_), do: nil
 
   defp validate_channels(%{"channels" => %{"telegram" => %{"botToken" => token}}})
        when is_binary(token) and token != "" do
