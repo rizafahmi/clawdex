@@ -15,7 +15,7 @@ Phase 2 complete and working.
 - [ ] WebSocket protocol allows CLI clients to send messages, list sessions, read config.
 - [ ] WebChat: browser-based chat with streaming replies via LiveView.
 - [ ] Control UI: dashboard showing sessions, channels, config, health.
-- [ ] CLI (`openclaw_ex`) can send messages and query status via the WS protocol.
+- [ ] CLI (`clawdex`) can send messages and query status via the WS protocol.
 
 ---
 
@@ -39,7 +39,7 @@ Phase 2 complete and working.
 ### Tool Behaviour
 
 ```elixir
-defmodule OpenClawEx.Tool.Behaviour do
+defmodule Clawdex.Tool.Behaviour do
   @type tool_input :: map()
   @type tool_result :: %{output: String.t(), error: String.t() | nil, exit_code: integer() | nil}
 
@@ -52,7 +52,7 @@ end
 
 ### Built-in Tools
 
-#### `OpenClawEx.Tool.Bash`
+#### `Clawdex.Tool.Bash`
 
 **Purpose:** Execute shell commands in the workspace.
 
@@ -66,13 +66,13 @@ end
 
 **Behavior:**
 - Runs command via `System.cmd/3` or `Port.open/2` (for streaming output).
-- Working directory: agent workspace (default `~/.openclaw_ex/workspace`).
+- Working directory: agent workspace (default `~/.clawdex/workspace`).
 - Timeout: 60 seconds (configurable).
 - Captures stdout + stderr.
 - Returns exit code.
 - **Security:** commands run as the Elixir process user. No sandbox in Phase 3 (added in Phase 5).
 
-#### `OpenClawEx.Tool.Read`
+#### `Clawdex.Tool.Read`
 
 **Purpose:** Read a file's contents.
 
@@ -92,7 +92,7 @@ end
 - Returns content with line numbers prefixed.
 - Supports line range for large files.
 
-#### `OpenClawEx.Tool.Write`
+#### `Clawdex.Tool.Write`
 
 **Purpose:** Write or create a file.
 
@@ -110,7 +110,7 @@ end
 - Creates parent directories if needed.
 - Rejects paths outside workspace.
 
-#### `OpenClawEx.Tool.Edit`
+#### `Clawdex.Tool.Edit`
 
 **Purpose:** Replace a string in a file (surgical edit).
 
@@ -127,7 +127,7 @@ end
 ### Tool Registry
 
 ```elixir
-defmodule OpenClawEx.Tool.Registry do
+defmodule Clawdex.Tool.Registry do
   @spec list() :: [module()]
   @spec get(name :: String.t()) :: {:ok, module()} | :not_found
   @spec schemas() :: [map()]   # JSON Schema array for LLM tool_use
@@ -149,7 +149,7 @@ The LLM call now uses the **tool_use** flow:
 5. Max iterations: 10 (prevent infinite loops).
 ```
 
-**Modified in `OpenClawEx.Router`:**
+**Modified in `Clawdex.Router`:**
 
 ```elixir
 defp run_agent_loop(session, messages, opts, iteration \\ 0)
@@ -255,7 +255,7 @@ Full-featured chat interface:
 - Model indicator in header.
 - `/reset`, `/model` commands in the input.
 
-**LiveView:** `OpenClawExWeb.ChatLive`
+**LiveView:** `ClawdexWeb.ChatLive`
 
 **Implementation:**
 - Connects to `"gateway:control"` channel internally (or calls Router directly).
@@ -272,7 +272,7 @@ Overview page:
 - Current model + config summary.
 - Uptime.
 
-**LiveView:** `OpenClawExWeb.DashboardLive`
+**LiveView:** `ClawdexWeb.DashboardLive`
 
 #### 3. Sessions (`/sessions`)
 
@@ -280,14 +280,14 @@ Overview page:
 - Click to view conversation history.
 - Delete / reset buttons.
 
-**LiveView:** `OpenClawExWeb.SessionsLive`
+**LiveView:** `ClawdexWeb.SessionsLive`
 
 #### 4. Config (`/config`)
 
 - Read-only display of current config (secrets redacted).
 - Live reload indicator.
 
-**LiveView:** `OpenClawExWeb.ConfigLive`
+**LiveView:** `ClawdexWeb.ConfigLive`
 
 ### Layout
 
@@ -309,17 +309,17 @@ Tailwind CSS for styling. Dark mode default.
 
 ### Binary
 
-`openclaw_ex` — escript or Burrito-packaged binary.
+`clawdex` — escript or Burrito-packaged binary.
 
 ### Commands
 
 ```bash
-openclaw_ex status                    # Show health + channels + sessions
-openclaw_ex send "Hello" --session main  # Send a message, print reply
-openclaw_ex sessions list             # List sessions
-openclaw_ex sessions reset <key>      # Reset a session
-openclaw_ex config get                # Print current config (redacted)
-openclaw_ex pairing approve <channel> <code>  # Approve a pairing code
+clawdex status                    # Show health + channels + sessions
+clawdex send "Hello" --session main  # Send a message, print reply
+clawdex sessions list             # List sessions
+clawdex sessions reset <key>      # Reset a session
+clawdex config get                # Print current config (redacted)
+clawdex pairing approve <channel> <code>  # Approve a pairing code
 ```
 
 ### Implementation
@@ -342,7 +342,7 @@ openclaw_ex pairing approve <channel> <code>  # Approve a pairing code
     }
   },
   "agent": {
-    "workspace": "~/.openclaw_ex/workspace",
+    "workspace": "~/.clawdex/workspace",
     "tools": {
       "allow": ["bash", "read", "write", "edit"]
     },
@@ -356,21 +356,21 @@ openclaw_ex pairing approve <channel> <code>  # Approve a pairing code
 ## Supervision Tree (updated)
 
 ```
-OpenClawEx.Application
-├── OpenClawEx.Config
-├── OpenClawEx.Repo (Ecto — SQLite)
-├── OpenClawEx.Session.DynamicSupervisor
-├── OpenClawEx.Session.Registry
-├── OpenClawEx.Pairing
-├── OpenClawEx.Tool.Registry
-├── OpenClawEx.Channel.Telegram (if configured)
-├── OpenClawEx.Channel.Discord (if configured)
-├── OpenClawEx.Channel.Slack (if configured)
-├── OpenClawEx.Router
-├── OpenClawExWeb.Endpoint (Phoenix — HTTP + WS + LiveView)
+Clawdex.Application
+├── Clawdex.Config
+├── Clawdex.Repo (Ecto — SQLite)
+├── Clawdex.Session.DynamicSupervisor
+├── Clawdex.Session.Registry
+├── Clawdex.Pairing
+├── Clawdex.Tool.Registry
+├── Clawdex.Channel.Telegram (if configured)
+├── Clawdex.Channel.Discord (if configured)
+├── Clawdex.Channel.Slack (if configured)
+├── Clawdex.Router
+├── ClawdexWeb.Endpoint (Phoenix — HTTP + WS + LiveView)
 │   ├── Phoenix.PubSub
 │   ├── Phoenix.Presence
-│   └── OpenClawExWeb.GatewayChannel
+│   └── ClawdexWeb.GatewayChannel
 └── Task.Supervisor (for tool execution tasks)
 ```
 

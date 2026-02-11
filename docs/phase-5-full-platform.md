@@ -54,7 +54,7 @@ end
 7. If all profiles exhausted: reply with error to user.
 ```
 
-### GenServer: `OpenClawEx.LLM.Failover`
+### GenServer: `Clawdex.LLM.Failover`
 
 ```elixir
 @spec chat_with_failover(messages, opts) :: {:ok, response} | {:error, :all_profiles_exhausted}
@@ -117,7 +117,7 @@ Run tool execution for non-main sessions inside Docker containers. Prevents untr
 ### Sandbox GenServer
 
 ```elixir
-defmodule OpenClawEx.Sandbox do
+defmodule Clawdex.Sandbox do
   @spec create(session_key :: String.t(), opts :: map()) :: {:ok, container_id}
   @spec exec(container_id, command :: String.t(), timeout :: integer()) :: {:ok, result}
   @spec destroy(container_id) :: :ok
@@ -156,7 +156,7 @@ Uses Playwright via a Node.js sidecar process (Playwright has no Elixir equivale
 
 ```
   Agent tool call         Port (stdin/stdout JSON)        Node.js
-  ─────────────► OpenClawEx.Browser.Bridge ◄──────────► playwright-bridge.mjs
+  ─────────────► Clawdex.Browser.Bridge ◄──────────► playwright-bridge.mjs
                                                           │
                                                           ▼
                                                     Chromium (CDP)
@@ -206,7 +206,7 @@ For simpler use cases, use Wallaby (Elixir-native ChromeDriver wrapper). Limitat
 ### Text-to-Speech
 
 ```elixir
-defmodule OpenClawEx.TTS do
+defmodule Clawdex.TTS do
   @spec synthesize(text :: String.t(), opts :: keyword()) :: {:ok, audio_binary} | {:error, term()}
 end
 ```
@@ -265,7 +265,7 @@ Route different channels, senders, or groups to different agent configurations (
     "default": {
       "model": "anthropic/claude-sonnet-4-20250514",
       "systemPrompt": "You are a helpful assistant.",
-      "workspace": "~/.openclaw_ex/workspace"
+      "workspace": "~/.clawdex/workspace"
     },
     "code-assistant": {
       "model": "anthropic/claude-sonnet-4-20250514",
@@ -417,30 +417,30 @@ Canvas content is delivered via the node protocol:
 ## Supervision Tree (final)
 
 ```
-OpenClawEx.Application
-├── OpenClawEx.Config
-├── OpenClawEx.Repo (Ecto — Postgres)
-├── OpenClawEx.Session.DynamicSupervisor
-├── OpenClawEx.Session.Registry
-├── OpenClawEx.Pairing
-├── OpenClawEx.LLM.Failover (auth profile management)
-├── OpenClawEx.Tool.Registry
-├── OpenClawEx.Plugin.Supervisor
+Clawdex.Application
+├── Clawdex.Config
+├── Clawdex.Repo (Ecto — Postgres)
+├── Clawdex.Session.DynamicSupervisor
+├── Clawdex.Session.Registry
+├── Clawdex.Pairing
+├── Clawdex.LLM.Failover (auth profile management)
+├── Clawdex.Tool.Registry
+├── Clawdex.Plugin.Supervisor
 │   ├── Plugin A (channel + tools)
 │   └── Plugin B (tools)
-├── OpenClawEx.Memory.Manager
-├── OpenClawEx.Cron.Scheduler (Quantum)
-├── OpenClawEx.Sandbox.Supervisor (Docker containers)
-├── OpenClawEx.Browser.Bridge (Port to Node.js)
-├── OpenClawEx.TTS
-├── OpenClawEx.Node.Registry (connected device nodes)
+├── Clawdex.Memory.Manager
+├── Clawdex.Cron.Scheduler (Quantum)
+├── Clawdex.Sandbox.Supervisor (Docker containers)
+├── Clawdex.Browser.Bridge (Port to Node.js)
+├── Clawdex.TTS
+├── Clawdex.Node.Registry (connected device nodes)
 ├── Channel Supervisors
-│   ├── OpenClawEx.Channel.Telegram
-│   ├── OpenClawEx.Channel.Discord
-│   ├── OpenClawEx.Channel.Slack
+│   ├── Clawdex.Channel.Telegram
+│   ├── Clawdex.Channel.Discord
+│   ├── Clawdex.Channel.Slack
 │   └── (plugin channels)
-├── OpenClawEx.Router
-└── OpenClawExWeb.Endpoint (Phoenix)
+├── Clawdex.Router
+└── ClawdexWeb.Endpoint (Phoenix)
     ├── Phoenix.PubSub
     ├── Phoenix.Presence
     ├── GatewayChannel (control protocol)

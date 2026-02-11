@@ -49,7 +49,7 @@ defmodule Clawdex.Application do
   end
 
   defp config_opts do
-    case System.get_env("OPENCLAW_CONFIG_PATH") do
+    case System.get_env("CLAWDEX_CONFIG_PATH") do
       nil -> []
       path -> [path: path]
     end

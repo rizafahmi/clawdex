@@ -36,7 +36,7 @@ Phase 3 complete and working.
 ### Plugin Behaviour
 
 ```elixir
-defmodule OpenClawEx.Plugin do
+defmodule Clawdex.Plugin do
   @type manifest :: %{
     name: String.t(),
     version: String.t(),
@@ -56,7 +56,7 @@ end
 ### Plugin Loader
 
 ```elixir
-defmodule OpenClawEx.Plugin.Loader do
+defmodule Clawdex.Plugin.Loader do
   @spec discover() :: [manifest()]           # Scan plugin directories
   @spec load(name :: String.t()) :: :ok      # Load + start a plugin
   @spec unload(name :: String.t()) :: :ok    # Stop + unload
@@ -66,13 +66,13 @@ end
 
 **Discovery locations:**
 1. Built-in plugins: compiled into the release.
-2. Workspace plugins: `~/.openclaw_ex/plugins/<name>/` (Mix project with `OpenClawEx.Plugin` implementation).
-3. Hex packages: `{:openclaw_ex_plugin_foo, "~> 1.0"}` in a plugin manifest file.
+2. Workspace plugins: `~/.clawdex/plugins/<name>/` (Mix project with `Clawdex.Plugin` implementation).
+3. Hex packages: `{:clawdex_plugin_foo, "~> 1.0"}` in a plugin manifest file.
 
 **Loading mechanism:**
 - Plugins are OTP applications started under a dedicated supervisor.
-- Plugin channels register with `OpenClawEx.Channel.Registry`.
-- Plugin tools register with `OpenClawEx.Tool.Registry`.
+- Plugin channels register with `Clawdex.Channel.Registry`.
+- Plugin tools register with `Clawdex.Tool.Registry`.
 - Plugin config is validated against the plugin's declared schema.
 
 ### Plugin Config
@@ -96,10 +96,10 @@ end
 ### Example Plugin Structure
 
 ```
-openclaw_ex_plugin_weather/
+clawdex_plugin_weather/
 ├── lib/
-│   ├── plugin.ex           # implements OpenClawEx.Plugin
-│   └── tool/weather.ex     # implements OpenClawEx.Tool.Behaviour
+│   ├── plugin.ex           # implements Clawdex.Plugin
+│   └── tool/weather.ex     # implements Clawdex.Tool.Behaviour
 ├── mix.exs
 └── README.md
 ```
@@ -145,7 +145,7 @@ end
 ### Embedding Providers
 
 ```elixir
-defmodule OpenClawEx.Memory.Embedding.Behaviour do
+defmodule Clawdex.Memory.Embedding.Behaviour do
   @callback embed(text :: String.t()) :: {:ok, [float()]} | {:error, term()}
   @callback embed_batch(texts :: [String.t()]) :: {:ok, [[float()]]} | {:error, term()}
   @callback dimensions() :: integer()
@@ -153,8 +153,8 @@ end
 ```
 
 Implementations:
-- `OpenClawEx.Memory.Embedding.OpenAI` — `text-embedding-3-small` (1536 dims)
-- `OpenClawEx.Memory.Embedding.Voyage` — `voyage-3-lite` (1024 dims)
+- `Clawdex.Memory.Embedding.OpenAI` — `text-embedding-3-small` (1536 dims)
+- `Clawdex.Memory.Embedding.Voyage` — `voyage-3-lite` (1024 dims)
 
 ### Memory Tools
 
@@ -326,13 +326,13 @@ When asked to review code:
 ### Skill Sources
 
 1. **Bundled:** Shipped with the release (`priv/skills/`).
-2. **Workspace:** User-created in `~/.openclaw_ex/workspace/skills/<name>/SKILL.md`.
+2. **Workspace:** User-created in `~/.clawdex/workspace/skills/<name>/SKILL.md`.
 3. **Managed:** Downloaded from a registry (future).
 
 ### Skill Loading
 
 ```elixir
-defmodule OpenClawEx.Skill do
+defmodule Clawdex.Skill do
   @spec list() :: [skill_entry()]
   @spec load(name :: String.t()) :: {:ok, skill_content()} | {:error, :not_found}
   @spec active_for_session(session_key :: String.t()) :: [skill_content()]
@@ -376,12 +376,12 @@ When a user sends an image/audio/document on a channel:
 ### Media Processing
 
 ```elixir
-defmodule OpenClawEx.Media do
+defmodule Clawdex.Media do
   @spec process(path :: String.t(), mime :: String.t()) ::
     {:ok, processed_media()} | {:error, term()}
 end
 
-defmodule OpenClawEx.Media.Transcription do
+defmodule Clawdex.Media.Transcription do
   @spec transcribe(audio_path :: String.t()) :: {:ok, String.t()} | {:error, term()}
 end
 ```

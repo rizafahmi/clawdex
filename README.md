@@ -9,11 +9,11 @@ Simplified Elixir port of [openclaw](https://github.com/openclaw/openclaw).
 1. Copy the example config and fill in your keys:
 
 ```sh
-mkdir -p ~/.openclaw_ex
-cp config/config.example.json ~/.openclaw_ex/config.json
+mkdir -p ~/.clawdex
+cp config/config.example.json ~/.clawdex/config.json
 ```
 
-2. Edit `~/.openclaw_ex/config.json` with your actual credentials:
+2. Edit `~/.clawdex/config.json` with your actual credentials:
 
 ```json
 {
@@ -36,7 +36,7 @@ You can also use environment variables instead of the config file:
 
 - `ANTHROPIC_API_KEY` — falls back when `anthropic.apiKey` is missing
 - `TELEGRAM_BOT_TOKEN` — falls back when `channels.telegram.botToken` is missing
-- `OPENCLAW_CONFIG_PATH` — override the config file location
+- `CLAWDEX_CONFIG_PATH` — override the config file location
 
 3. Get a Telegram bot token from [@BotFather](https://t.me/BotFather).
 

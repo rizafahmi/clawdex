@@ -9,7 +9,7 @@ A working personal AI assistant: messages arrive on Telegram, route to Anthropic
 - [ ] Send a Telegram message → get an AI response back within seconds.
 - [ ] Conversation history is maintained per chat (multi-turn).
 - [ ] `/reset` clears the session. `/status` shows model + session info.
-- [ ] Config is loaded from `~/.openclaw_ex/config.json` at startup.
+- [ ] Config is loaded from `~/.clawdex/config.json` at startup.
 - [ ] Application survives channel crashes (supervisor restarts the adapter).
 
 ---
@@ -17,9 +17,9 @@ A working personal AI assistant: messages arrive on Telegram, route to Anthropic
 ## Project Setup
 
 ```
-openclaw_ex/
+clawdex/
 ├── lib/
-│   ├── openclaw_ex/
+│   ├── clawdex/
 │   │   ├── application.ex          # OTP Application + supervision tree
 │   │   ├── config/
 │   │   │   ├── loader.ex           # Read + parse JSON config
@@ -36,14 +36,14 @@ openclaw_ex/
 │   │   │   ├── behaviour.ex        # @callback handle_message, send_reply
 │   │   │   └── telegram.ex         # Telegram bot adapter
 │   │   └── router.ex               # Inbound dispatch: channel → session → LLM → reply
-│   └── openclaw_ex.ex              # Top-level module
+│   └── clawdex.ex              # Top-level module
 ├── config/
 │   ├── config.exs
 │   ├── dev.exs
 │   ├── prod.exs
 │   └── runtime.exs                 # Reads env vars at release boot
 ├── test/
-│   ├── openclaw_ex/
+│   ├── clawdex/
 │   │   ├── config/loader_test.exs
 │   │   ├── session/session_test.exs
 │   │   ├── llm/anthropic_test.exs
@@ -76,11 +76,11 @@ end
 
 ## Module Specifications
 
-### 1. `OpenClawEx.Config.Loader`
+### 1. `Clawdex.Config.Loader`
 
 **Purpose:** Load the user's config file at startup.
 
-**Config file location:** `~/.openclaw_ex/config.json` (or `OPENCLAW_CONFIG_PATH` env var).
+**Config file location:** `~/.clawdex/config.json` (or `CLAWDEX_CONFIG_PATH` env var).
 
 **Minimal config shape:**
 
@@ -116,7 +116,7 @@ end
 
 ---
 
-### 2. `OpenClawEx.Session`
+### 2. `Clawdex.Session`
 
 **Purpose:** GenServer that holds conversation history for one chat.
 
@@ -143,14 +143,14 @@ end
 ```
 
 **Behavior:**
-- Each session is a GenServer under `OpenClawEx.Session.Registry` (DynamicSupervisor).
+- Each session is a GenServer under `Clawdex.Session.Registry` (DynamicSupervisor).
 - Sessions are identified by `{channel, chat_id}` tuple → string key.
 - Idle timeout: terminate after 30 minutes of inactivity (configurable). Re-created on next message.
 - Max history: keep last N messages (default 50) to avoid unbounded growth.
 
 ---
 
-### 3. `OpenClawEx.Session.Registry`
+### 3. `Clawdex.Session.Registry`
 
 **Purpose:** Start, find, and supervise Session GenServers.
 
@@ -169,7 +169,7 @@ end
 
 ---
 
-### 4. `OpenClawEx.LLM.Behaviour`
+### 4. `Clawdex.LLM.Behaviour`
 
 **Purpose:** Common interface for LLM providers.
 
@@ -183,7 +183,7 @@ end
 
 ---
 
-### 5. `OpenClawEx.LLM.Anthropic`
+### 5. `Clawdex.LLM.Anthropic`
 
 **Purpose:** Call the Anthropic Messages API.
 
@@ -213,7 +213,7 @@ end
 
 ---
 
-### 6. `OpenClawEx.Channel.Behaviour`
+### 6. `Clawdex.Channel.Behaviour`
 
 **Purpose:** Common interface for messaging channel adapters.
 
@@ -225,7 +225,7 @@ end
 Inbound messages are sent to the Router via:
 
 ```elixir
-OpenClawEx.Router.handle_inbound(%{
+Clawdex.Router.handle_inbound(%{
   channel: :telegram,
   chat_id: "12345",
   sender_id: "67890",
@@ -237,7 +237,7 @@ OpenClawEx.Router.handle_inbound(%{
 
 ---
 
-### 7. `OpenClawEx.Channel.Telegram`
+### 7. `Clawdex.Channel.Telegram`
 
 **Purpose:** Telegram bot that receives and sends messages.
 
@@ -250,7 +250,7 @@ OpenClawEx.Router.handle_inbound(%{
 
 ---
 
-### 8. `OpenClawEx.Router`
+### 8. `Clawdex.Router`
 
 **Purpose:** Central dispatch — the "brain" that wires channel → session → LLM → reply.
 
@@ -283,12 +283,12 @@ OpenClawEx.Router.handle_inbound(%{
 ## Supervision Tree
 
 ```
-OpenClawEx.Application
-├── OpenClawEx.Config (GenServer — holds config)
-├── OpenClawEx.Session.DynamicSupervisor
-├── OpenClawEx.Session.Registry (Registry)
-├── OpenClawEx.Channel.Telegram (GenServer — polling loop)
-├── OpenClawEx.Router (stateless, but could be GenServer for rate limiting)
+Clawdex.Application
+├── Clawdex.Config (GenServer — holds config)
+├── Clawdex.Session.DynamicSupervisor
+├── Clawdex.Session.Registry (Registry)
+├── Clawdex.Channel.Telegram (GenServer — polling loop)
+├── Clawdex.Router (stateless, but could be GenServer for rate limiting)
 └── Bandit (HTTP server — health endpoint on :4000)
 ```
 

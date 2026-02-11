@@ -1,4 +1,4 @@
-# OpenClaw Elixir — Phased Spec Documents
+# Clawdex — Phased Spec Documents
 
 Specification documents for the Elixir port of [OpenClaw](https://github.com/openclaw/openclaw).
 

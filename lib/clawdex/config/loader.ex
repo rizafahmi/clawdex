@@ -5,7 +5,7 @@ defmodule Clawdex.Config.Loader do
 
   alias Clawdex.Config.Schema
 
-  @default_path Path.expand("~/.openclaw_ex/config.json")
+  @default_path Path.expand("~/.clawdex/config.json")
 
   def start_link(opts \\ []) do
     GenServer.start_link(__MODULE__, opts, name: __MODULE__)
@@ -53,7 +53,7 @@ defmodule Clawdex.Config.Loader do
   end
 
   defp config_path do
-    System.get_env("OPENCLAW_CONFIG_PATH") || @default_path
+    System.get_env("CLAWDEX_CONFIG_PATH") || @default_path
   end
 
   defp read_file(path) do

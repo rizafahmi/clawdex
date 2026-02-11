@@ -34,13 +34,13 @@ Phase 1 complete and working.
 
 ## New / Modified Modules
 
-### 1. `OpenClawEx.LLM.OpenAI`
+### 1. `Clawdex.LLM.OpenAI`
 
 **Purpose:** OpenAI Chat Completions API client.
 
 **API:** `POST https://api.openai.com/v1/chat/completions`
 
-**Interface:** Implements `OpenClawEx.LLM.Behaviour`.
+**Interface:** Implements `Clawdex.LLM.Behaviour`.
 
 **Differences from Anthropic:**
 - System prompt is a message with `role: "system"` (not a top-level field).
@@ -61,7 +61,7 @@ Phase 1 complete and working.
 
 ---
 
-### 2. `OpenClawEx.LLM.Streaming`
+### 2. `Clawdex.LLM.Streaming`
 
 **Purpose:** Shared streaming infrastructure for both providers.
 
@@ -82,7 +82,7 @@ Phase 1 complete and working.
 
 ---
 
-### 3. `OpenClawEx.Channel.Discord`
+### 3. `Clawdex.Channel.Discord`
 
 **Purpose:** Discord bot via Nostrum.
 
@@ -110,7 +110,7 @@ Phase 1 complete and working.
 
 ---
 
-### 4. `OpenClawEx.Channel.Slack`
+### 4. `Clawdex.Channel.Slack`
 
 **Purpose:** Slack bot via Socket Mode (app-level token) + Web API.
 
@@ -136,7 +136,7 @@ Phase 1 complete and working.
 
 ---
 
-### 5. `OpenClawEx.Session.Store` (Ecto + SQLite)
+### 5. `Clawdex.Session.Store` (Ecto + SQLite)
 
 **Purpose:** Persist sessions and messages to SQLite so they survive restarts.
 
@@ -170,11 +170,11 @@ end
 - GenServer still holds in-memory cache for fast reads during LLM calls.
 - WAL mode for concurrent read performance.
 
-**DB location:** `~/.openclaw_ex/data/openclaw.db`
+**DB location:** `~/.clawdex/data/openclaw.db`
 
 ---
 
-### 6. `OpenClawEx.Pairing`
+### 6. `Clawdex.Pairing`
 
 **Purpose:** DM pairing — unknown senders receive a pairing code, owner approves via CLI or config.
 
@@ -183,7 +183,7 @@ end
 ```
 1. Unknown sender sends a DM.
 2. Bot replies: "Pairing code: ABCD. Ask the owner to approve."
-3. Owner runs: `openclaw_ex pairing approve telegram ABCD`
+3. Owner runs: `clawdex pairing approve telegram ABCD`
 4. Sender is added to the allowlist (persisted to SQLite).
 5. Future messages from that sender are processed normally.
 ```
@@ -219,7 +219,7 @@ end
 
 ---
 
-### 7. `OpenClawEx.LLM.Resolver`
+### 7. `Clawdex.LLM.Resolver`
 
 **Purpose:** Given a model string like `"anthropic/claude-sonnet-4-20250514"` or `"openai/gpt-4o"`, resolve which provider module + model ID to use.
 
@@ -231,10 +231,10 @@ end
 
 # Examples:
 resolve("anthropic/claude-sonnet-4-20250514")
-# => {:ok, {OpenClawEx.LLM.Anthropic, "claude-sonnet-4-20250514"}}
+# => {:ok, {Clawdex.LLM.Anthropic, "claude-sonnet-4-20250514"}}
 
 resolve("openai/gpt-4o")
-# => {:ok, {OpenClawEx.LLM.OpenAI, "gpt-4o"}}
+# => {:ok, {Clawdex.LLM.OpenAI, "gpt-4o"}}
 ```
 
 ---
@@ -328,16 +328,16 @@ resolve("openai/gpt-4o")
 ## Supervision Tree (updated)
 
 ```
-OpenClawEx.Application
-├── OpenClawEx.Config
-├── OpenClawEx.Repo (Ecto — SQLite)
-├── OpenClawEx.Session.DynamicSupervisor
-├── OpenClawEx.Session.Registry
-├── OpenClawEx.Pairing (GenServer — manages codes + approvals)
-├── OpenClawEx.Channel.Telegram (if configured)
-├── OpenClawEx.Channel.Discord (if configured — Nostrum consumer)
-├── OpenClawEx.Channel.Slack (if configured — Socket Mode WS)
-├── OpenClawEx.Router
+Clawdex.Application
+├── Clawdex.Config
+├── Clawdex.Repo (Ecto — SQLite)
+├── Clawdex.Session.DynamicSupervisor
+├── Clawdex.Session.Registry
+├── Clawdex.Pairing (GenServer — manages codes + approvals)
+├── Clawdex.Channel.Telegram (if configured)
+├── Clawdex.Channel.Discord (if configured — Nostrum consumer)
+├── Clawdex.Channel.Slack (if configured — Socket Mode WS)
+├── Clawdex.Router
 └── Bandit (health endpoint)
 ```
 
