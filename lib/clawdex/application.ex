@@ -11,6 +11,7 @@ defmodule Clawdex.Application do
 
     base_children =
       config_children(config_opts) ++
+        repo_children() ++
         [
           {Registry, keys: :unique, name: Clawdex.Session.Registry},
           {DynamicSupervisor, strategy: :one_for_one, name: Clawdex.Session.DynamicSupervisor},
@@ -19,7 +20,10 @@ defmodule Clawdex.Application do
 
     opts = [strategy: :one_for_one, name: Clawdex.Supervisor]
 
+    ensure_data_dir()
+
     with {:ok, sup} <- Supervisor.start_link(base_children, opts) do
+      run_migrations()
       configure_telegex()
       start_optional_children(sup)
       {:ok, sup}
@@ -58,6 +62,31 @@ defmodule Clawdex.Application do
   defp channel_children do
     if Application.get_env(:clawdex, :start_telegram, true) do
       [Clawdex.Channel.Telegram]
+    else
+      []
+    end
+  end
+
+  defp ensure_data_dir do
+    if Application.get_env(:clawdex, :start_repo, true) do
+      db_path = Application.get_env(:clawdex, Clawdex.Repo)[:database] || ""
+
+      case Path.dirname(db_path) do
+        "." -> :ok
+        dir -> File.mkdir_p!(dir)
+      end
+    end
+  end
+
+  defp run_migrations do
+    if Application.get_env(:clawdex, :start_repo, true) do
+      Ecto.Migrator.run(Clawdex.Repo, :up, all: true)
+    end
+  end
+
+  defp repo_children do
+    if Application.get_env(:clawdex, :start_repo, true) do
+      [Clawdex.Repo]
     else
       []
     end

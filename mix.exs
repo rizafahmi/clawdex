@@ -8,13 +8,14 @@ defmodule Clawdex.MixProject do
       elixir: "~> 1.18",
       elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,
-      deps: deps()
+      deps: deps(),
+      aliases: aliases()
     ]
   end
 
   def application do
     [
-      extra_applications: [:logger],
+      extra_applications: [:logger, :ecto_sql],
       mod: {Clawdex.Application, []}
     ]
   end
@@ -27,7 +28,18 @@ defmodule Clawdex.MixProject do
       {:req, "~> 0.5"},
       {:jason, "~> 1.4"},
       {:plug, "~> 1.16"},
-      {:bandit, "~> 1.5"}
+      {:bandit, "~> 1.5"},
+      {:ecto_sql, "~> 3.12"},
+      {:ecto_sqlite3, "~> 0.17"},
+      {:bypass, "~> 2.1", only: :test}
+    ]
+  end
+
+  defp aliases do
+    [
+      setup: ["deps.get", "ecto.setup"],
+      "ecto.setup": ["ecto.create", "ecto.migrate"],
+      "ecto.reset": ["ecto.drop", "ecto.setup"]
     ]
   end
 end

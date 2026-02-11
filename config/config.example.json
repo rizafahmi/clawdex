@@ -1,10 +1,15 @@
 {
   "agent": {
-    "model": "gemini-3.0-pro-exp",
-    "systemPrompt": "You are a helpful personal assistant."
+    "model": "gemini/gemini-2.5-flash",
+    "systemPrompt": "You are a helpful personal assistant.",
+    "maxHistoryMessages": 50,
+    "contextWindowPercent": 80
   },
   "gemini": {
     "apiKey": "your-gemini-api-key-here"
+  },
+  "openrouter": {
+    "apiKey": "your-openrouter-api-key-here"
   },
   "channels": {
     "telegram": {
