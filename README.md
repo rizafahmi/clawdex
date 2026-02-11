@@ -1,6 +1,6 @@
 # Clawdex
 
-A personal AI assistant gateway. Messages arrive on Telegram, route to Anthropic Claude, and replies go back. Conversations are tracked in-memory per chat.
+A personal AI assistant gateway. Messages arrive on Telegram, route to Google Gemini (via AI Studio), and replies go back. Conversations are tracked in-memory per chat.
 
 Simplified Elixir port of [openclaw](https://github.com/openclaw/openclaw).
 
@@ -18,11 +18,11 @@ cp config/config.example.json ~/.clawdex/config.json
 ```json
 {
   "agent": {
-    "model": "anthropic/claude-sonnet-4-20250514",
+    "model": "gemini-3.0-pro-exp",
     "systemPrompt": "You are a helpful personal assistant."
   },
-  "anthropic": {
-    "apiKey": "sk-ant-your-api-key-here"
+  "gemini": {
+    "apiKey": "your-gemini-api-key-here"
   },
   "channels": {
     "telegram": {
@@ -34,13 +34,13 @@ cp config/config.example.json ~/.clawdex/config.json
 
 You can also use environment variables instead of the config file:
 
-- `ANTHROPIC_API_KEY` — falls back when `anthropic.apiKey` is missing
+- `GEMINI_API_KEY` — falls back when `gemini.apiKey` is missing
 - `TELEGRAM_BOT_TOKEN` — falls back when `channels.telegram.botToken` is missing
 - `CLAWDEX_CONFIG_PATH` — override the config file location
 
 3. Get a Telegram bot token from [@BotFather](https://t.me/BotFather).
 
-4. Get an Anthropic API key from [console.anthropic.com](https://console.anthropic.com/).
+4. Get a Gemini API key from [aistudio.google.com](https://aistudio.google.com/).
 
 ## Running
 
