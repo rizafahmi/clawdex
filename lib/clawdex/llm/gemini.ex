@@ -3,63 +3,39 @@ defmodule Clawdex.LLM.Gemini do
 
   @behaviour Clawdex.LLM.Behaviour
 
-  # Default to Gemini 3.0 Pro
+  # Default to Gemini 2.5 Flash
   @default_model "gemini-2.5-flash"
+  @default_base_url "https://generativelanguage.googleapis.com/v1beta/models"
   @timeout 120_000
 
   @impl true
   def chat(messages, opts \\ []) do
     api_key = Keyword.fetch!(opts, :api_key)
-    model = Keyword.get(opts, :model, @default_model)
-    system = Keyword.get(opts, :system)
+    model = opts |> Keyword.get(:model, @default_model) |> normalize_model()
+    base_url = opts[:base_url] || Application.get_env(:clawdex, :gemini_base_url, @default_base_url)
 
-    # Gemini API uses `contents` and `role` logic slightly differently.
-    # We need to transform `messages` into `contents`.
-    contents = Enum.map(messages, &to_gemini_content/1)
+    url = "#{base_url}/#{model}:generateContent"
+    body = build_body(messages, opts)
 
-    url = api_url(model, api_key)
-
-    body =
-      %{
-        "contents" => contents,
-        "generationConfig" => %{
-          "temperature" => 0.7
-        }
-      }
-      |> maybe_put_system(system)
-
-    case Req.post(url, json: body, receive_timeout: @timeout) do
-      {:ok, %Req.Response{status: 200, body: body}} ->
-        extract_text(body)
-
-      {:ok, %Req.Response{status: 400, body: body}} ->
-        {:error, {:bad_request, body}}
-
-      {:ok, %Req.Response{status: 429}} ->
-        {:error, :rate_limited}
-
-      {:ok, %Req.Response{status: status, body: body}} ->
-        {:error, {:api_error, status, body}}
-
-      {:error, %Req.TransportError{reason: :timeout}} ->
-        {:error, :timeout}
-
-      {:error, reason} ->
-        {:error, reason}
-    end
-  end
-
-  defp api_url(model, key) do
-    # Normalize model name, remove prefix if present
-    model = normalize_model(model)
-    base = Application.get_env(:clawdex, :gemini_base_url, "https://generativelanguage.googleapis.com/v1beta/models")
-    "#{base}/#{model}:generateContent?key=#{key}"
+    Req.post(url, json: body, params: [key: api_key], receive_timeout: @timeout)
+    |> handle_response()
   end
 
   defp normalize_model("gemini/" <> model), do: model
   defp normalize_model(model), do: model
 
-  # Transform standard message format to Gemini content
+  defp build_body(messages, opts) do
+    contents = Enum.map(messages, &to_gemini_content/1)
+
+    %{
+      "contents" => contents,
+      "generationConfig" => %{
+        "temperature" => 0.7
+      }
+    }
+    |> maybe_put_system(opts[:system])
+  end
+
   defp to_gemini_content(%{"role" => "user", "content" => text}) do
     %{"role" => "user", "parts" => [%{"text" => text}]}
   end
@@ -68,13 +44,36 @@ defmodule Clawdex.LLM.Gemini do
     %{"role" => "model", "parts" => [%{"text" => text}]}
   end
 
-  # Gemini 1.5 Pro supports system instructions via `systemInstruction` field in specific format
   defp maybe_put_system(body, nil), do: body
   defp maybe_put_system(body, ""), do: body
   defp maybe_put_system(body, system) do
     Map.put(body, "systemInstruction", %{
       "parts" => [%{"text" => system}]
     })
+  end
+
+  defp handle_response({:ok, %Req.Response{status: 200, body: body}}) do
+    extract_text(body)
+  end
+
+  defp handle_response({:ok, %Req.Response{status: 400, body: body}}) do
+    {:error, {:bad_request, body}}
+  end
+
+  defp handle_response({:ok, %Req.Response{status: 429}}) do
+    {:error, :rate_limited}
+  end
+
+  defp handle_response({:ok, %Req.Response{status: status, body: body}}) do
+    {:error, {:api_error, status, body}}
+  end
+
+  defp handle_response({:error, %Req.TransportError{reason: :timeout}}) do
+    {:error, :timeout}
+  end
+
+  defp handle_response({:error, reason}) do
+    {:error, reason}
   end
 
   defp extract_text(%{"candidates" => [%{"content" => %{"parts" => [%{"text" => text} | _]}} | _]}) do
