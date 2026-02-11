@@ -8,6 +8,12 @@ defmodule Clawdex.Router do
   alias Clawdex.Session
   alias Clawdex.Session.{Message, SessionRegistry}
 
+  @model_doc_urls %{
+    gemini: {"Gemini", "https://ai.google.dev/gemini-api/docs/models"},
+    anthropic: {"Anthropic", "https://platform.claude.com/docs/en/about-claude/models/overview"},
+    openrouter: {"OpenRouter", "https://openrouter.ai/models"}
+  }
+
   @spec handle_inbound(map()) :: :ok
   def handle_inbound(%{text: "/" <> _ = text} = message) do
     handle_command(text, message)
@@ -95,13 +101,34 @@ defmodule Clawdex.Router do
 
   defp show_current_model(message) do
     config = Loader.get()
+    links = model_doc_links(config)
 
     with_session(message, fn session_key, _pid ->
       current = Session.get_model(session_key) || config.agent.model
-      send_reply(message, "Current model: #{current}")
+      send_reply(message, "Current model: #{current}\n\n#{links}")
     end, fn _ ->
-      send_reply(message, "Current model: #{config.agent.model}")
+      send_reply(message, "Current model: #{config.agent.model}\n\n#{links}")
     end)
+  end
+
+  defp model_doc_links(config) do
+    links =
+      [:gemini, :anthropic, :openrouter]
+      |> Enum.filter(fn provider ->
+        case Map.get(config, provider) do
+          %{api_key: key} when is_binary(key) and key != "" -> true
+          _ -> false
+        end
+      end)
+      |> Enum.map(fn provider ->
+        {name, url} = Map.fetch!(@model_doc_urls, provider)
+        "#{name}: #{url}"
+      end)
+
+    case links do
+      [] -> ""
+      _ -> "Available models:\n" <> Enum.join(links, "\n")
+    end
   end
 
   defp switch_model(message, model_name) do

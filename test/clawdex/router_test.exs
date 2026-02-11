@@ -112,7 +112,7 @@ defmodule Clawdex.RouterTest do
     assert text =~ "/compact"
   end
 
-  test "handles /model command to show current model" do
+  test "handles /model command to show current model with doc links" do
     message = %{
       channel: :telegram,
       chat_id: 123,
@@ -125,6 +125,43 @@ defmodule Clawdex.RouterTest do
     Router.handle_inbound(message)
     assert_receive {:reply_sent, 123, text}, 500
     assert text =~ "gemini/gemini-2.5-flash"
+    assert text =~ "Available models:"
+    assert text =~ "https://ai.google.dev/gemini-api/docs/models"
+    assert text =~ "https://openrouter.ai/models"
+    refute text =~ "Anthropic"
+  end
+
+  test "/model shows anthropic link when anthropic key is configured" do
+    config = %Schema{
+      agent: %{
+        model: "anthropic/claude-sonnet-4-20250514",
+        system_prompt: "Be helpful.",
+        max_history_messages: 50,
+        context_window_percent: 80
+      },
+      gemini: %{api_key: "test-key"},
+      anthropic: %{api_key: "anthropic-test-key"},
+      channels: %{telegram: %{bot_token: "test-token"}}
+    }
+
+    stop_supervised!(Clawdex.Config.Loader)
+    start_supervised!({Clawdex.Config.Loader, config: config})
+
+    message = %{
+      channel: :telegram,
+      chat_id: 777,
+      sender_id: 456,
+      sender_name: "Test",
+      text: "/model",
+      timestamp: DateTime.utc_now()
+    }
+
+    Router.handle_inbound(message)
+    assert_receive {:reply_sent, 777, text}, 500
+    assert text =~ "anthropic/claude-sonnet-4-20250514"
+    assert text =~ "https://platform.claude.com/docs/en/about-claude/models/overview"
+    assert text =~ "https://ai.google.dev/gemini-api/docs/models"
+    refute text =~ "OpenRouter"
   end
 
   test "handles /model <name> to switch model" do
