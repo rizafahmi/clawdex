@@ -77,7 +77,7 @@ defmodule Clawdex.Session do
 
   @impl true
   def handle_call({:append, message}, _from, state) do
-    Task.start(fn -> persist_message(state.store_id, message) end)
+    Task.Supervisor.start_child(Clawdex.TaskSupervisor, fn -> persist_message(state.store_id, message) end)
 
     messages =
       (state.messages ++ [message])
@@ -94,7 +94,7 @@ defmodule Clawdex.Session do
 
   @impl true
   def handle_call(:reset, _from, state) do
-    Task.start(fn -> clear_store(state.store_id) end)
+    Task.Supervisor.start_child(Clawdex.TaskSupervisor, fn -> clear_store(state.store_id) end)
     state = %{state | messages: [], model_override: nil, last_active_at: DateTime.utc_now()}
     {:reply, :ok, state, @idle_timeout}
   end
@@ -114,7 +114,7 @@ defmodule Clawdex.Session do
 
   @impl true
   def handle_call({:set_model, model}, _from, state) do
-    Task.start(fn -> persist_model_override(state.store_id, model) end)
+    Task.Supervisor.start_child(Clawdex.TaskSupervisor, fn -> persist_model_override(state.store_id, model) end)
     state = %{state | model_override: model, last_active_at: DateTime.utc_now()}
     {:reply, :ok, state, @idle_timeout}
   end
@@ -130,7 +130,7 @@ defmodule Clawdex.Session do
   end
 
   defp load_from_store(session_key) do
-    if store_available?() do
+    if store_enabled?() do
       alias Clawdex.Session.Store
 
       case Store.find_or_create_session(session_key) do
@@ -139,7 +139,7 @@ defmodule Clawdex.Session do
             record.id
             |> Store.load_messages()
             |> Enum.map(fn msg ->
-              Message.new(String.to_existing_atom(msg.role), msg.content)
+              Message.new(role_from_string(msg.role), msg.content)
             end)
 
           {messages, record.model_override, record.id}
@@ -155,38 +155,25 @@ defmodule Clawdex.Session do
   defp persist_message(nil, _message), do: :ok
 
   defp persist_message(store_id, %Message{} = message) do
-    if store_available?() do
-      Clawdex.Session.Store.append_message(store_id, %{
-        role: to_string(message.role),
-        content: message.content
-      })
-    end
+    Clawdex.Session.Store.append_message(store_id, %{
+      role: to_string(message.role),
+      content: message.content
+    })
 
     :ok
   end
 
   defp clear_store(nil), do: :ok
-
-  defp clear_store(store_id) do
-    if store_available?() do
-      Clawdex.Session.Store.clear_messages(store_id)
-    end
-
-    :ok
-  end
+  defp clear_store(store_id), do: Clawdex.Session.Store.clear_messages(store_id)
 
   defp persist_model_override(nil, _model), do: :ok
+  defp persist_model_override(store_id, model), do: Clawdex.Session.Store.set_model_override(store_id, model)
 
-  defp persist_model_override(store_id, model) do
-    if store_available?() do
-      Clawdex.Session.Store.set_model_override(store_id, model)
-    end
+  defp role_from_string("user"), do: :user
+  defp role_from_string("assistant"), do: :assistant
 
-    :ok
-  end
-
-  defp store_available? do
-    match?({:ok, _}, Application.fetch_env(:clawdex, :ecto_repos)) and
+  defp store_enabled? do
+    Application.get_env(:clawdex, :start_repo, true) and
       Process.whereis(Clawdex.Repo) != nil
   end
 end

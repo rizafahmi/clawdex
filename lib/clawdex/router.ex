@@ -14,7 +14,7 @@ defmodule Clawdex.Router do
   end
 
   def handle_inbound(message) do
-    Task.start(fn -> process_message(message) end)
+    Task.Supervisor.start_child(Clawdex.TaskSupervisor, fn -> process_message(message) end)
     :ok
   end
 
@@ -51,33 +51,22 @@ defmodule Clawdex.Router do
   end
 
   defp handle_command("/model" <> rest, message) do
-    model_name = String.trim(rest)
-    config = Loader.get()
-
-    if model_name == "" do
-      with_session(message, fn session_key, _pid ->
-        current = Session.get_model(session_key) || config.agent.model
-        send_reply(message, "Current model: #{current}")
-      end, fn _ ->
-        send_reply(message, "Current model: #{config.agent.model}")
-      end)
-    else
-      session_key = session_key(message)
-      {:ok, _pid} = SessionRegistry.get_or_start(session_key)
-      Session.set_model(session_key, model_name)
-      send_reply(message, "Model switched to: #{model_name}")
+    case String.trim(rest) do
+      "" -> show_current_model(message)
+      model_name -> switch_model(message, model_name)
     end
-
-    :ok
   end
 
   defp handle_command("/compact" <> _, message) do
     with_session(message, fn session_key, _pid ->
-      history = Session.get_history(session_key)
-      if length(history) < 4 do
-        send_reply(message, "Not enough messages to compact.")
-      else
-        Task.start(fn -> do_compact(session_key, history, message) end)
+      case Session.get_history(session_key) do
+        [_, _, _, _ | _] = history ->
+          Task.Supervisor.start_child(Clawdex.TaskSupervisor, fn ->
+            do_compact(session_key, history, message)
+          end)
+
+        _ ->
+          send_reply(message, "Not enough messages to compact.")
       end
     end, fn _ ->
       send_reply(message, "No active session to compact.")
@@ -100,7 +89,26 @@ defmodule Clawdex.Router do
   end
 
   defp handle_command(_text, message) do
-    Task.start(fn -> process_message(message) end)
+    Task.Supervisor.start_child(Clawdex.TaskSupervisor, fn -> process_message(message) end)
+    :ok
+  end
+
+  defp show_current_model(message) do
+    config = Loader.get()
+
+    with_session(message, fn session_key, _pid ->
+      current = Session.get_model(session_key) || config.agent.model
+      send_reply(message, "Current model: #{current}")
+    end, fn _ ->
+      send_reply(message, "Current model: #{config.agent.model}")
+    end)
+  end
+
+  defp switch_model(message, model_name) do
+    session_key = session_key(message)
+    {:ok, _pid} = SessionRegistry.get_or_start(session_key)
+    Session.set_model(session_key, model_name)
+    send_reply(message, "Model switched to: #{model_name}")
     :ok
   end
 
@@ -160,14 +168,9 @@ defmodule Clawdex.Router do
     split_at = div(length(history), 2)
     {to_summarize, to_keep} = Enum.split(history, split_at)
 
-    summary_messages =
-      to_summarize
-      |> Enum.map(&Message.to_api_format/1)
-
-    summary_prompt = [
-      %{"role" => "user", "content" => "Summarize this conversation so far in a concise paragraph:"}
-      | summary_messages
-    ]
+    summary_prompt =
+      Enum.map(to_summarize, &Message.to_api_format/1) ++
+        [%{"role" => "user", "content" => "Summarize the conversation above in a concise paragraph."}]
 
     model = Session.get_model(session_key) || config.agent.model
 
@@ -177,9 +180,7 @@ defmodule Clawdex.Router do
         summary_msg = Message.new(:assistant, "[Compacted summary] " <> summary_text)
         Session.append(session_key, summary_msg)
 
-        for msg <- to_keep do
-          Session.append(session_key, msg)
-        end
+        Enum.each(to_keep, &Session.append(session_key, &1))
 
         send_reply(message, "Compacted #{split_at} messages into a summary.")
 

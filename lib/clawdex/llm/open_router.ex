@@ -27,25 +27,8 @@ defmodule Clawdex.LLM.OpenRouter do
       {"content-type", "application/json"}
     ]
 
-    case Req.post(url, json: body, headers: headers, receive_timeout: @timeout) do
-      {:ok, %Req.Response{status: 200, body: body}} ->
-        extract_text(body)
-
-      {:ok, %Req.Response{status: 401}} ->
-        {:error, :invalid_api_key}
-
-      {:ok, %Req.Response{status: 429}} ->
-        {:error, :rate_limited}
-
-      {:ok, %Req.Response{status: status, body: body}} ->
-        {:error, {:api_error, status, body}}
-
-      {:error, %Req.TransportError{reason: :timeout}} ->
-        {:error, :timeout}
-
-      {:error, reason} ->
-        {:error, reason}
-    end
+    Req.post(url, json: body, headers: headers, receive_timeout: @timeout)
+    |> Clawdex.LLM.HTTP.map_response(&extract_text/1)
   end
 
   defp build_messages(nil, messages), do: messages

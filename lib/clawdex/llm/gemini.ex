@@ -18,7 +18,7 @@ defmodule Clawdex.LLM.Gemini do
     body = build_body(messages, opts)
 
     Req.post(url, json: body, params: [key: api_key], receive_timeout: @timeout)
-    |> handle_response()
+    |> Clawdex.LLM.HTTP.map_response(&extract_text/1)
   end
 
   defp normalize_model("gemini/" <> model), do: model
@@ -50,30 +50,6 @@ defmodule Clawdex.LLM.Gemini do
     Map.put(body, "systemInstruction", %{
       "parts" => [%{"text" => system}]
     })
-  end
-
-  defp handle_response({:ok, %Req.Response{status: 200, body: body}}) do
-    extract_text(body)
-  end
-
-  defp handle_response({:ok, %Req.Response{status: 400, body: body}}) do
-    {:error, {:bad_request, body}}
-  end
-
-  defp handle_response({:ok, %Req.Response{status: 429}}) do
-    {:error, :rate_limited}
-  end
-
-  defp handle_response({:ok, %Req.Response{status: status, body: body}}) do
-    {:error, {:api_error, status, body}}
-  end
-
-  defp handle_response({:error, %Req.TransportError{reason: :timeout}}) do
-    {:error, :timeout}
-  end
-
-  defp handle_response({:error, reason}) do
-    {:error, reason}
   end
 
   defp extract_text(%{"candidates" => [%{"content" => %{"parts" => [%{"text" => text} | _]}} | _]}) do
