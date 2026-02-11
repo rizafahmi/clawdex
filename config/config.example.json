@@ -1,10 +1,10 @@
 {
   "agent": {
-    "model": "anthropic/claude-sonnet-4-20250514",
+    "model": "gemini-3.0-pro-exp",
     "systemPrompt": "You are a helpful personal assistant."
   },
-  "anthropic": {
-    "apiKey": "sk-ant-your-api-key-here"
+  "gemini": {
+    "apiKey": "your-gemini-api-key-here"
   },
   "channels": {
     "telegram": {

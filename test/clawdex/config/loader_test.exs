@@ -5,11 +5,11 @@ defmodule Clawdex.Config.LoaderTest do
 
   @valid_config %{
     "agent" => %{
-      "model" => "anthropic/claude-sonnet-4-20250514",
+      "model" => "gemini-3.0-pro-exp",
       "systemPrompt" => "You are helpful."
     },
-    "anthropic" => %{
-      "apiKey" => "sk-ant-test-key"
+    "gemini" => %{
+      "apiKey" => "test-gemini-key"
     },
     "channels" => %{
       "telegram" => %{
@@ -30,9 +30,9 @@ defmodule Clawdex.Config.LoaderTest do
     File.write!(path, Jason.encode!(@valid_config))
 
     assert {:ok, config} = Loader.load(path)
-    assert config.agent.model == "anthropic/claude-sonnet-4-20250514"
+    assert config.agent.model == "gemini-3.0-pro-exp"
     assert config.agent.system_prompt == "You are helpful."
-    assert config.anthropic.api_key == "sk-ant-test-key"
+    assert config.gemini.api_key == "test-gemini-key"
     assert config.channels.telegram.bot_token == "123456:ABCDEF"
   end
 
@@ -64,16 +64,16 @@ defmodule Clawdex.Config.LoaderTest do
     assert config.agent.system_prompt == "You are a helpful personal assistant."
   end
 
-  test "falls back to ANTHROPIC_API_KEY env var", %{dir: dir} do
+  test "falls back to GEMINI_API_KEY env var", %{dir: dir} do
     path = Path.join(dir, "config.json")
-    config = Map.delete(@valid_config, "anthropic")
+    config = Map.delete(@valid_config, "gemini")
     File.write!(path, Jason.encode!(config))
 
-    System.put_env("ANTHROPIC_API_KEY", "env-key")
-    on_exit(fn -> System.delete_env("ANTHROPIC_API_KEY") end)
+    System.put_env("GEMINI_API_KEY", "env-key")
+    on_exit(fn -> System.delete_env("GEMINI_API_KEY") end)
 
     assert {:ok, config} = Loader.load(path)
-    assert config.anthropic.api_key == "env-key"
+    assert config.gemini.api_key == "env-key"
   end
 
   test "falls back to TELEGRAM_BOT_TOKEN env var", %{dir: dir} do

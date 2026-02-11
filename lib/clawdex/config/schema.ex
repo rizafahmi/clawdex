@@ -3,13 +3,13 @@ defmodule Clawdex.Config.Schema do
 
   defstruct [
     :agent,
-    :anthropic,
+    :gemini,
     :channels
   ]
 
   @type t :: %__MODULE__{
           agent: agent(),
-          anthropic: anthropic(),
+          gemini: gemini(),
           channels: channels()
         }
 
@@ -18,7 +18,7 @@ defmodule Clawdex.Config.Schema do
           system_prompt: String.t()
         }
 
-  @type anthropic :: %{
+  @type gemini :: %{
           api_key: String.t()
         }
 
@@ -33,12 +33,12 @@ defmodule Clawdex.Config.Schema do
   @spec validate(map()) :: {:ok, t()} | {:error, String.t()}
   def validate(raw) when is_map(raw) do
     with {:ok, agent} <- validate_agent(raw),
-         {:ok, anthropic} <- validate_anthropic(raw),
+         {:ok, gemini} <- validate_gemini(raw),
          {:ok, channels} <- validate_channels(raw) do
       {:ok,
        %__MODULE__{
          agent: agent,
-         anthropic: anthropic,
+         gemini: gemini,
          channels: channels
        }}
     end
@@ -57,14 +57,14 @@ defmodule Clawdex.Config.Schema do
   defp validate_agent(%{"agent" => _}), do: {:error, "agent.model is required"}
   defp validate_agent(_), do: {:error, "agent config is required"}
 
-  defp validate_anthropic(%{"anthropic" => %{"apiKey" => key}}) when is_binary(key) and key != "" do
+  defp validate_gemini(%{"gemini" => %{"apiKey" => key}}) when is_binary(key) and key != "" do
     {:ok, %{api_key: key}}
   end
 
-  defp validate_anthropic(_) do
-    case System.get_env("ANTHROPIC_API_KEY") do
-      nil -> {:error, "anthropic.apiKey is required (config or ANTHROPIC_API_KEY env var)"}
-      "" -> {:error, "anthropic.apiKey is required (config or ANTHROPIC_API_KEY env var)"}
+  defp validate_gemini(_) do
+    case System.get_env("GEMINI_API_KEY") do
+      nil -> {:error, "gemini.apiKey is required (config or GEMINI_API_KEY env var)"}
+      "" -> {:error, "gemini.apiKey is required (config or GEMINI_API_KEY env var)"}
       key -> {:ok, %{api_key: key}}
     end
   end
