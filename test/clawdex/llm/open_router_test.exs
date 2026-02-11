@@ -8,9 +8,6 @@ defmodule Clawdex.LLM.OpenRouterTest do
   describe "chat/2" do
     test "sends messages and returns response text" do
       bypass = Bypass.open()
-      Application.put_env(:clawdex, :openrouter_base_url, "http://localhost:#{bypass.port}")
-
-      on_exit(fn -> Application.delete_env(:clawdex, :openrouter_base_url) end)
 
       Bypass.expect_once(bypass, "POST", "/chat/completions", fn conn ->
         {:ok, body, conn} = Plug.Conn.read_body(conn)
@@ -31,14 +28,12 @@ defmodule Clawdex.LLM.OpenRouterTest do
       end)
 
       messages = [%{"role" => "user", "content" => "Hi"}]
-      assert {:ok, "Hello!"} = OpenRouter.chat(messages, @opts)
+      opts = @opts ++ [base_url: "http://localhost:#{bypass.port}"]
+      assert {:ok, "Hello!"} = OpenRouter.chat(messages, opts)
     end
 
     test "prepends system message when system prompt provided" do
       bypass = Bypass.open()
-      Application.put_env(:clawdex, :openrouter_base_url, "http://localhost:#{bypass.port}")
-
-      on_exit(fn -> Application.delete_env(:clawdex, :openrouter_base_url) end)
 
       Bypass.expect_once(bypass, "POST", "/chat/completions", fn conn ->
         {:ok, body, conn} = Plug.Conn.read_body(conn)
@@ -60,36 +55,32 @@ defmodule Clawdex.LLM.OpenRouterTest do
       end)
 
       messages = [%{"role" => "user", "content" => "Hi"}]
-      opts = @opts ++ [system: "Be helpful"]
+      opts = @opts ++ [system: "Be helpful", base_url: "http://localhost:#{bypass.port}"]
       assert {:ok, "Sure!"} = OpenRouter.chat(messages, opts)
     end
 
     test "returns error on 401" do
       bypass = Bypass.open()
-      Application.put_env(:clawdex, :openrouter_base_url, "http://localhost:#{bypass.port}")
-
-      on_exit(fn -> Application.delete_env(:clawdex, :openrouter_base_url) end)
 
       Bypass.expect_once(bypass, "POST", "/chat/completions", fn conn ->
         Plug.Conn.resp(conn, 401, ~s({"error": "unauthorized"}))
       end)
 
       messages = [%{"role" => "user", "content" => "Hi"}]
-      assert {:error, :invalid_api_key} = OpenRouter.chat(messages, @opts)
+      opts = @opts ++ [base_url: "http://localhost:#{bypass.port}"]
+      assert {:error, :invalid_api_key} = OpenRouter.chat(messages, opts)
     end
 
     test "returns error on 429" do
       bypass = Bypass.open()
-      Application.put_env(:clawdex, :openrouter_base_url, "http://localhost:#{bypass.port}")
-
-      on_exit(fn -> Application.delete_env(:clawdex, :openrouter_base_url) end)
 
       Bypass.expect_once(bypass, "POST", "/chat/completions", fn conn ->
         Plug.Conn.resp(conn, 429, ~s({"error": "rate limited"}))
       end)
 
       messages = [%{"role" => "user", "content" => "Hi"}]
-      assert {:error, :rate_limited} = OpenRouter.chat(messages, @opts)
+      opts = @opts ++ [base_url: "http://localhost:#{bypass.port}"]
+      assert {:error, :rate_limited} = OpenRouter.chat(messages, opts)
     end
   end
 end

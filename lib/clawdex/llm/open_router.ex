@@ -11,6 +11,7 @@ defmodule Clawdex.LLM.OpenRouter do
     api_key = Keyword.fetch!(opts, :api_key)
     model = Keyword.get(opts, :model, @default_model)
     system = Keyword.get(opts, :system)
+    base_url = opts[:base_url] || Application.get_env(:clawdex, :openrouter_base_url, "https://openrouter.ai/api/v1")
 
     api_messages = build_messages(system, messages)
 
@@ -19,7 +20,7 @@ defmodule Clawdex.LLM.OpenRouter do
       "messages" => api_messages
     }
 
-    url = base_url() <> "/chat/completions"
+    url = base_url <> "/chat/completions"
 
     headers = [
       {"authorization", "Bearer #{api_key}"},
@@ -60,9 +61,5 @@ defmodule Clawdex.LLM.OpenRouter do
 
   defp extract_text(body) do
     {:error, {:unexpected_response, body}}
-  end
-
-  defp base_url do
-    Application.get_env(:clawdex, :openrouter_base_url, "https://openrouter.ai/api/v1")
   end
 end
