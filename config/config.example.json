@@ -1,0 +1,14 @@
+{
+  "agent": {
+    "model": "anthropic/claude-sonnet-4-20250514",
+    "systemPrompt": "You are a helpful personal assistant."
+  },
+  "anthropic": {
+    "apiKey": "sk-ant-your-api-key-here"
+  },
+  "channels": {
+    "telegram": {
+      "botToken": "123456789:ABCDefGHIJKlmnOPQRstUVwxYZ"
+    }
+  }
+}
