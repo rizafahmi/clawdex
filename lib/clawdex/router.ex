@@ -6,7 +6,6 @@ defmodule Clawdex.Router do
   alias Clawdex.Config.Loader
   alias Clawdex.Session
   alias Clawdex.Session.{Message, SessionRegistry}
-  alias Clawdex.LLM.Anthropic
 
   @spec handle_inbound(map()) :: :ok
   def handle_inbound(%{text: "/" <> _ = text} = message) do
@@ -80,7 +79,7 @@ defmodule Clawdex.Router do
       |> Enum.map(&Message.to_api_format/1)
 
     opts = [
-      api_key: config.anthropic.api_key,
+      api_key: config.gemini.api_key,
       model: config.agent.model,
       system: config.agent.system_prompt
     ]
@@ -115,7 +114,7 @@ defmodule Clawdex.Router do
   end
 
   defp llm_module do
-    Application.get_env(:clawdex, :llm_module, Anthropic)
+    Application.get_env(:clawdex, :llm_module, Clawdex.LLM.Gemini)
   end
 
   defp channel_module do

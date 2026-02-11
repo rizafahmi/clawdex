@@ -5,8 +5,8 @@ defmodule Clawdex.RouterTest do
   alias Clawdex.Router
 
   @config %Schema{
-    agent: %{model: "claude-sonnet-4-20250514", system_prompt: "Be helpful."},
-    anthropic: %{api_key: "test-key"},
+    agent: %{model: "gemini-3.0-pro-exp", system_prompt: "Be helpful."},
+    gemini: %{api_key: "test-key"},
     channels: %{telegram: %{bot_token: "test-token"}}
   }
 
@@ -69,7 +69,7 @@ defmodule Clawdex.RouterTest do
 
     Router.handle_inbound(message)
     assert_receive {:reply_sent, 123, text}, 500
-    assert text =~ "claude-sonnet-4-20250514"
+    assert text =~ "gemini-3.0-pro-exp"
     assert text =~ "Messages: 0"
   end
 
