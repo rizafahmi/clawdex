@@ -19,6 +19,21 @@ defmodule Clawdex.Channel.Telegram do
     token = Clawdex.Config.Loader.get().channels.telegram.bot_token
 
     case api_request(token, "sendMessage", %{chat_id: chat_id, text: text}) do
+      {:ok, %{"message_id" => message_id}} -> {:ok, message_id}
+      {:ok, _} -> {:ok, nil}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  @impl Clawdex.Channel.Behaviour
+  def edit_reply(chat_id, message_id, text) do
+    token = Clawdex.Config.Loader.get().channels.telegram.bot_token
+
+    case api_request(token, "editMessageText", %{
+           chat_id: chat_id,
+           message_id: message_id,
+           text: text
+         }) do
       {:ok, _} -> :ok
       {:error, reason} -> {:error, reason}
     end

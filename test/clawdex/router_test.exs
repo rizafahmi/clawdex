@@ -5,8 +5,14 @@ defmodule Clawdex.RouterTest do
   alias Clawdex.Router
 
   @config %Schema{
-    agent: %{model: "gemini-3.0-pro-exp", system_prompt: "Be helpful."},
+    agent: %{
+      model: "gemini/gemini-2.5-flash",
+      system_prompt: "Be helpful.",
+      max_history_messages: 50,
+      context_window_percent: 80
+    },
     gemini: %{api_key: "test-key"},
+    openrouter: %{api_key: "or-test-key"},
     channels: %{telegram: %{bot_token: "test-token"}}
   }
 
@@ -60,7 +66,7 @@ defmodule Clawdex.RouterTest do
   test "handles /status command" do
     message = %{
       channel: :telegram,
-      chat_id: 123,
+      chat_id: 9999,
       sender_id: 456,
       sender_name: "Test",
       text: "/status",
@@ -68,8 +74,8 @@ defmodule Clawdex.RouterTest do
     }
 
     Router.handle_inbound(message)
-    assert_receive {:reply_sent, 123, text}, 500
-    assert text =~ "gemini-3.0-pro-exp"
+    assert_receive {:reply_sent, 9999, text}, 500
+    assert text =~ "gemini/gemini-2.5-flash"
     assert text =~ "Messages: 0"
   end
 
@@ -87,5 +93,68 @@ defmodule Clawdex.RouterTest do
 
     Router.handle_inbound(message)
     assert_receive {:reply_sent, 123, "Request timed out."}, 500
+  end
+
+  test "handles /help command" do
+    message = %{
+      channel: :telegram,
+      chat_id: 123,
+      sender_id: 456,
+      sender_name: "Test",
+      text: "/help",
+      timestamp: DateTime.utc_now()
+    }
+
+    Router.handle_inbound(message)
+    assert_receive {:reply_sent, 123, text}, 500
+    assert text =~ "/reset"
+    assert text =~ "/model"
+    assert text =~ "/compact"
+  end
+
+  test "handles /model command to show current model" do
+    message = %{
+      channel: :telegram,
+      chat_id: 123,
+      sender_id: 456,
+      sender_name: "Test",
+      text: "/model",
+      timestamp: DateTime.utc_now()
+    }
+
+    Router.handle_inbound(message)
+    assert_receive {:reply_sent, 123, text}, 500
+    assert text =~ "gemini/gemini-2.5-flash"
+  end
+
+  test "handles /model <name> to switch model" do
+    message = %{
+      channel: :telegram,
+      chat_id: 124,
+      sender_id: 456,
+      sender_name: "Test",
+      text: "/model openai/gpt-4o",
+      timestamp: DateTime.utc_now()
+    }
+
+    Router.handle_inbound(message)
+    assert_receive {:reply_sent, 124, text}, 500
+    assert text =~ "Model switched to: openai/gpt-4o"
+  end
+
+  test "sends error when unknown provider and no openrouter key" do
+    Clawdex.LLM.Stub.set_response({:error, :unknown_provider})
+
+    message = %{
+      channel: :telegram,
+      chat_id: 125,
+      sender_id: 456,
+      sender_name: "Test",
+      text: "Hello",
+      timestamp: DateTime.utc_now()
+    }
+
+    Router.handle_inbound(message)
+    assert_receive {:reply_sent, 125, "Unknown model provider. Check model name."}, 500
   end
 end

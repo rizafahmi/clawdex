@@ -4,6 +4,7 @@ defmodule Clawdex.Router do
   require Logger
 
   alias Clawdex.Config.Loader
+  alias Clawdex.LLM.Resolver
   alias Clawdex.Session
   alias Clawdex.Session.{Message, SessionRegistry}
 
@@ -18,44 +19,83 @@ defmodule Clawdex.Router do
   end
 
   defp handle_command("/reset" <> _, message) do
-    session_key = session_key(message)
+    with_session(message, fn session_key, _pid ->
+      Session.reset(session_key)
+      send_reply(message, "Session reset.")
+    end, fn _ ->
+      send_reply(message, "Session reset.")
+    end)
+  end
 
-    case SessionRegistry.lookup(session_key) do
-      {:ok, _pid} ->
-        Session.reset(session_key)
-        send_reply(message, "Session reset.")
+  defp handle_command("/status" <> _, message) do
+    config = Loader.get()
 
-      :not_found ->
-        send_reply(message, "Session reset.")
+    with_session(message, fn session_key, _pid ->
+      info = Session.get_info(session_key)
+      model = info.model_override || config.agent.model
+
+      status = """
+      Model: #{model}
+      Messages: #{info.message_count}
+      Session started: #{info.created_at}
+      """
+      send_reply(message, String.trim(status))
+    end, fn _ ->
+      status = """
+      Model: #{config.agent.model}
+      Messages: 0
+      No active session.
+      """
+      send_reply(message, String.trim(status))
+    end)
+  end
+
+  defp handle_command("/model" <> rest, message) do
+    model_name = String.trim(rest)
+    config = Loader.get()
+
+    if model_name == "" do
+      with_session(message, fn session_key, _pid ->
+        current = Session.get_model(session_key) || config.agent.model
+        send_reply(message, "Current model: #{current}")
+      end, fn _ ->
+        send_reply(message, "Current model: #{config.agent.model}")
+      end)
+    else
+      session_key = session_key(message)
+      {:ok, _pid} = SessionRegistry.get_or_start(session_key)
+      Session.set_model(session_key, model_name)
+      send_reply(message, "Model switched to: #{model_name}")
     end
 
     :ok
   end
 
-  defp handle_command("/status" <> _, message) do
-    session_key = session_key(message)
-    config = Loader.get()
-
-    status =
-      case SessionRegistry.lookup(session_key) do
-        {:ok, _pid} ->
-          info = Session.get_info(session_key)
-
-          """
-          Model: #{config.agent.model}
-          Messages: #{info.message_count}
-          Session started: #{info.created_at}
-          """
-
-        :not_found ->
-          """
-          Model: #{config.agent.model}
-          Messages: 0
-          No active session.
-          """
+  defp handle_command("/compact" <> _, message) do
+    with_session(message, fn session_key, _pid ->
+      history = Session.get_history(session_key)
+      if length(history) < 4 do
+        send_reply(message, "Not enough messages to compact.")
+      else
+        Task.start(fn -> do_compact(session_key, history, message) end)
       end
+    end, fn _ ->
+      send_reply(message, "No active session to compact.")
+    end)
+  end
 
-    send_reply(message, String.trim(status))
+  defp handle_command("/help" <> _, message) do
+    help_text = """
+    Available commands:
+    /reset — Clear session history
+    /status — Show model, message count, session age
+    /model <name> — Switch model (e.g., /model openai/gpt-4o)
+    /model — Show current model
+    /compact — Summarize old messages to free context window
+    /help — Show this help message
+    """
+
+    send_reply(message, String.trim(help_text))
     :ok
   end
 
@@ -78,13 +118,9 @@ defmodule Clawdex.Router do
       |> Session.get_history()
       |> Enum.map(&Message.to_api_format/1)
 
-    opts = [
-      api_key: config.gemini.api_key,
-      model: config.agent.model,
-      system: config.agent.system_prompt
-    ]
+    model = Session.get_model(session_key) || config.agent.model
 
-    case llm_module().chat(history, opts) do
+    case resolve_and_chat(model, config, history) do
       {:ok, reply_text} ->
         assistant_msg = Message.new(:assistant, reply_text)
         :ok = Session.append(session_key, assistant_msg)
@@ -99,10 +135,67 @@ defmodule Clawdex.Router do
       {:error, :timeout} ->
         send_reply(message, "Request timed out.")
 
+      {:error, :unknown_provider} ->
+        send_reply(message, "Unknown model provider. Check model name.")
+
       {:error, reason} ->
         Logger.error("LLM error: #{inspect(reason)}")
         send_reply(message, "Something went wrong. Please try again.")
     end
+  end
+
+  defp resolve_and_chat(model, config, history) do
+    case Resolver.resolve(model, config) do
+      {:ok, {module, _model_id, opts}} ->
+        opts = Keyword.put_new(opts, :system, config.agent.system_prompt)
+        module.chat(history, opts)
+
+      {:error, _} = error ->
+        error
+    end
+  end
+
+  defp do_compact(session_key, history, message) do
+    config = Loader.get()
+    split_at = div(length(history), 2)
+    {to_summarize, to_keep} = Enum.split(history, split_at)
+
+    summary_messages =
+      to_summarize
+      |> Enum.map(&Message.to_api_format/1)
+
+    summary_prompt = [
+      %{"role" => "user", "content" => "Summarize this conversation so far in a concise paragraph:"}
+      | summary_messages
+    ]
+
+    model = Session.get_model(session_key) || config.agent.model
+
+    case resolve_and_chat(model, config, summary_prompt) do
+      {:ok, summary_text} ->
+        Session.reset(session_key)
+        summary_msg = Message.new(:assistant, "[Compacted summary] " <> summary_text)
+        Session.append(session_key, summary_msg)
+
+        for msg <- to_keep do
+          Session.append(session_key, msg)
+        end
+
+        send_reply(message, "Compacted #{split_at} messages into a summary.")
+
+      {:error, _reason} ->
+        send_reply(message, "Failed to compact. Try again later.")
+    end
+  end
+
+  defp with_session(message, success_fun, not_found_fun) do
+    session_key = session_key(message)
+
+    case SessionRegistry.lookup(session_key) do
+      {:ok, pid} -> success_fun.(session_key, pid)
+      :not_found -> not_found_fun.(session_key)
+    end
+    :ok
   end
 
   defp session_key(%{channel: channel, chat_id: chat_id}) do
@@ -111,10 +204,6 @@ defmodule Clawdex.Router do
 
   defp send_reply(%{channel: :telegram, chat_id: chat_id}, text) do
     channel_module().send_reply(chat_id, text)
-  end
-
-  defp llm_module do
-    Application.get_env(:clawdex, :llm_module, Clawdex.LLM.Gemini)
   end
 
   defp channel_module do

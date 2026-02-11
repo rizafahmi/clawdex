@@ -1,30 +1,28 @@
-# Phase 2 — Multi-Channel, Persistence, and Streaming
+# Phase 2 — Persistence, Streaming, and OpenRouter
 
 ## Goal
 
-Expand from Telegram-only to Discord + Slack. Add disk-based session persistence so conversations survive restarts. Implement streaming responses so users see text arrive incrementally. Add DM pairing (allowlists) for basic security.
+Add disk-based session persistence so conversations survive restarts. Implement streaming responses so users see text arrive incrementally. Add OpenRouter as a second LLM provider for access to a wide range of models (Claude, GPT, Llama, Mistral, etc.). Add a model resolver so users can switch models on the fly.
 
 ## Prerequisites
 
-Phase 1 complete and working.
+Phase 1 complete and working (Telegram + Gemini).
 
 ## Success Criteria
 
-- [ ] Discord bot receives DMs and group mentions, replies via Nostrum.
-- [ ] Slack bot receives DMs and app mentions, replies via Slack Web API.
 - [ ] Sessions are persisted to SQLite (survive application restarts).
-- [ ] Streaming: Telegram/Discord/Slack show chunked replies (edit-in-place).
-- [ ] Allowlist: only approved senders can trigger the bot (DM pairing flow).
-- [ ] OpenAI provider works alongside Anthropic (per-config model selection).
+- [ ] Streaming: Telegram shows chunked replies (edit-in-place).
+- [ ] OpenRouter provider works alongside Gemini (per-config model selection).
+- [ ] `Clawdex.LLM.Resolver` maps model strings to provider modules.
 - [ ] `/model <name>` switches the model for the current session.
+- [ ] `/compact` summarizes old messages to free context window.
+- [ ] Context window management prevents exceeding model limits.
 
 ---
 
 ## New Dependencies
 
 ```elixir
-{:nostrum, "~> 0.10"},            # Discord bot library
-{:slack_web, "~> 0.4"},           # Slack Web API (or custom Req-based)
 {:exqlite, "~> 0.23"},            # SQLite3 via Ecto adapter
 {:ecto_sqlite3, "~> 0.17"},       # Ecto adapter for SQLite
 {:ecto, "~> 3.12"},               # Schema + query layer for persistence
@@ -34,27 +32,28 @@ Phase 1 complete and working.
 
 ## New / Modified Modules
 
-### 1. `Clawdex.LLM.OpenAI`
+### 1. `Clawdex.LLM.OpenRouter`
 
-**Purpose:** OpenAI Chat Completions API client.
+**Purpose:** OpenRouter API client — a single provider for Claude, GPT, Llama, Mistral, and dozens more.
 
-**API:** `POST https://api.openai.com/v1/chat/completions`
+**API:** `POST https://openrouter.ai/api/v1/chat/completions`
 
 **Interface:** Implements `Clawdex.LLM.Behaviour`.
 
-**Differences from Anthropic:**
-- System prompt is a message with `role: "system"` (not a top-level field).
-- Auth header: `Authorization: Bearer <key>` (not `x-api-key`).
+**Details:**
+- OpenAI-compatible format: messages with `role` + `content`.
+- System prompt is a message with `role: "system"`.
+- Auth header: `Authorization: Bearer <key>`.
 - Response path: `choices[0].message.content`.
 - Streaming: `stream: true` → SSE with `data: {"choices":[{"delta":{"content":"..."}}]}`.
+- Model is passed as `model` field in the request body (e.g., `"anthropic/claude-sonnet-4-20250514"`, `"openai/gpt-4o"`, `"meta-llama/llama-4-maverick"`).
 
 **Config:**
 
 ```json
 {
-  "openai": {
-    "apiKey": "sk-...",
-    "baseUrl": "https://api.openai.com/v1"
+  "openrouter": {
+    "apiKey": "sk-or-..."
   }
 }
 ```
@@ -63,7 +62,7 @@ Phase 1 complete and working.
 
 ### 2. `Clawdex.LLM.Streaming`
 
-**Purpose:** Shared streaming infrastructure for both providers.
+**Purpose:** Shared streaming infrastructure for all providers.
 
 **Interface:**
 
@@ -75,68 +74,44 @@ Phase 1 complete and working.
 ```
 
 **Behavior:**
-- Anthropic: SSE stream, events of type `content_block_delta` with `delta.text`.
-- OpenAI: SSE stream, `choices[0].delta.content` per chunk.
-- Callback is invoked per chunk; the channel adapter decides how to render (edit-in-place, append, etc.).
+- Gemini: SSE stream, parse `candidates[0].content.parts[0].text` per chunk.
+- OpenRouter: SSE stream, `choices[0].delta.content` per chunk.
+- Callback is invoked per chunk; the channel adapter decides how to render (edit-in-place).
 - Final full text is returned for session persistence.
 
 ---
 
-### 3. `Clawdex.Channel.Discord`
+### 3. `Clawdex.LLM.Resolver`
 
-**Purpose:** Discord bot via Nostrum.
+**Purpose:** Given a model string, resolve which provider module + model ID to use.
 
-**Behavior:**
-- Connects to Discord Gateway (WebSocket).
-- Listens for `MESSAGE_CREATE` events.
-- DM messages: always process (if sender is allowlisted).
-- Guild messages: only process if bot is mentioned (`@BotName`), strip the mention before forwarding.
-- Reply via `Nostrum.Api.create_message/2`.
-- Streaming: edit the reply message every ~500ms with accumulated text.
-- Handles slash commands: `/reset`, `/status`, `/model`.
+**Interface:**
 
-**Config:**
+```elixir
+@spec resolve(model_string :: String.t(), config :: Config.Schema.t()) ::
+  {:ok, {module(), model_id :: String.t(), opts :: keyword()}} | {:error, :unknown_provider}
 
-```json
-{
-  "channels": {
-    "discord": {
-      "token": "MTIz...",
-      "allowFrom": ["user_id_1", "user_id_2"]
-    }
-  }
-}
+# Examples:
+resolve("gemini/gemini-2.5-flash", config)
+# => {:ok, {Clawdex.LLM.Gemini, "gemini-2.5-flash", [api_key: "..."]}}
+
+resolve("anthropic/claude-sonnet-4-20250514", config)
+# => {:ok, {Clawdex.LLM.OpenRouter, "anthropic/claude-sonnet-4-20250514", [api_key: "sk-or-..."]}}
+
+resolve("openai/gpt-4o", config)
+# => {:ok, {Clawdex.LLM.OpenRouter, "openai/gpt-4o", [api_key: "sk-or-..."]}}
+
+resolve("meta-llama/llama-4-maverick", config)
+# => {:ok, {Clawdex.LLM.OpenRouter, "meta-llama/llama-4-maverick", [api_key: "sk-or-..."]}}
 ```
+
+**Rules:**
+- `"gemini/"` prefix or bare `"gemini-*"` → `Clawdex.LLM.Gemini` (direct, uses Gemini API key).
+- Everything else → `Clawdex.LLM.OpenRouter` (pass model string as-is).
 
 ---
 
-### 4. `Clawdex.Channel.Slack`
-
-**Purpose:** Slack bot via Socket Mode (app-level token) + Web API.
-
-**Behavior:**
-- Connects via Slack Socket Mode WebSocket (uses app token).
-- Listens for `app_mention` and `message.im` events.
-- Reply via `chat.postMessage` / `chat.update` (for streaming edits).
-- Thread-aware: replies in threads if the original message was in a thread.
-- Streaming: post initial message, then `chat.update` every ~500ms.
-
-**Config:**
-
-```json
-{
-  "channels": {
-    "slack": {
-      "botToken": "xoxb-...",
-      "appToken": "xapp-..."
-    }
-  }
-}
-```
-
----
-
-### 5. `Clawdex.Session.Store` (Ecto + SQLite)
+### 4. `Clawdex.Session.Store` (Ecto + SQLite)
 
 **Purpose:** Persist sessions and messages to SQLite so they survive restarts.
 
@@ -148,7 +123,7 @@ schema "sessions" do
   field :session_key, :string     # "telegram:12345"
   field :channel, :string         # "telegram"
   field :chat_id, :string         # "12345"
-  field :model_override, :string  # nil = use default
+  field :model_override, :string  # nil = use default from config
   field :message_count, :integer, default: 0
   timestamps()
 end
@@ -170,81 +145,16 @@ end
 - GenServer still holds in-memory cache for fast reads during LLM calls.
 - WAL mode for concurrent read performance.
 
-**DB location:** `~/.clawdex/data/openclaw.db`
+**DB location:** `~/.clawdex/data/clawdex.db`
 
 ---
 
-### 6. `Clawdex.Pairing`
-
-**Purpose:** DM pairing — unknown senders receive a pairing code, owner approves via CLI or config.
-
-**Flow:**
-
-```
-1. Unknown sender sends a DM.
-2. Bot replies: "Pairing code: ABCD. Ask the owner to approve."
-3. Owner runs: `clawdex pairing approve telegram ABCD`
-4. Sender is added to the allowlist (persisted to SQLite).
-5. Future messages from that sender are processed normally.
-```
-
-**Config:**
-
-```json
-{
-  "channels": {
-    "telegram": {
-      "dmPolicy": "pairing",
-      "allowFrom": ["owner_user_id"]
-    }
-  }
-}
-```
-
-**Policies:**
-- `"pairing"` (default): unknown senders get a code.
-- `"open"`: all senders are allowed.
-- `"closed"`: unknown senders are silently ignored.
-
-**Schema:**
-
-```elixir
-schema "allowlist_entries" do
-  field :channel, :string
-  field :sender_id, :string
-  field :sender_name, :string
-  field :approved_at, :utc_datetime
-end
-```
-
----
-
-### 7. `Clawdex.LLM.Resolver`
-
-**Purpose:** Given a model string like `"anthropic/claude-sonnet-4-20250514"` or `"openai/gpt-4o"`, resolve which provider module + model ID to use.
-
-**Interface:**
-
-```elixir
-@spec resolve(model_string :: String.t()) ::
-  {:ok, {module(), model_id :: String.t()}} | {:error, :unknown_model}
-
-# Examples:
-resolve("anthropic/claude-sonnet-4-20250514")
-# => {:ok, {Clawdex.LLM.Anthropic, "claude-sonnet-4-20250514"}}
-
-resolve("openai/gpt-4o")
-# => {:ok, {Clawdex.LLM.OpenAI, "gpt-4o"}}
-```
-
----
-
-### 8. Slash Commands (expanded)
+### 5. Slash Commands (expanded)
 
 | Command | Action |
 |---|---|
 | `/reset` | Clear session history |
-| `/status` | Show model, message count, session age, channel |
+| `/status` | Show model, message count, session age |
 | `/model <name>` | Switch model for this session (e.g., `/model openai/gpt-4o`) |
 | `/model` | Show current model |
 | `/compact` | Summarize old messages to free context window |
@@ -252,15 +162,23 @@ resolve("openai/gpt-4o")
 
 ---
 
+### 6. `Clawdex.Router` (updated)
+
+**Changes:**
+- Use `Clawdex.LLM.Resolver` to pick provider based on model string.
+- Support per-session model overrides (stored in session state + SQLite).
+- Handle `/model` command to switch models mid-session.
+- Pass streaming callback when streaming is enabled.
+
+---
+
 ## Streaming Implementation Detail
 
-### Per-channel strategy
+### Telegram strategy
 
 | Channel | Strategy | Update interval |
 |---|---|---|
 | Telegram | `editMessageText` on the initial reply | Every 500ms or 100 chars |
-| Discord | `edit_message` on the initial reply | Every 500ms or 100 chars |
-| Slack | `chat.update` on the initial reply | Every 500ms or 100 chars |
 
 ### Flow
 
@@ -292,32 +210,20 @@ resolve("openai/gpt-4o")
 ```json
 {
   "agent": {
-    "model": "anthropic/claude-sonnet-4-20250514",
+    "model": "gemini/gemini-2.5-flash",
     "systemPrompt": "You are a helpful assistant.",
     "maxHistoryMessages": 50,
     "contextWindowPercent": 80
   },
-  "anthropic": {
-    "apiKey": "sk-ant-..."
+  "gemini": {
+    "apiKey": "AIza..."
   },
-  "openai": {
-    "apiKey": "sk-..."
+  "openrouter": {
+    "apiKey": "sk-or-..."
   },
   "channels": {
     "telegram": {
-      "botToken": "123:ABC",
-      "dmPolicy": "pairing",
-      "allowFrom": ["owner_id"]
-    },
-    "discord": {
-      "token": "MTIz...",
-      "dmPolicy": "pairing",
-      "allowFrom": ["owner_id"]
-    },
-    "slack": {
-      "botToken": "xoxb-...",
-      "appToken": "xapp-...",
-      "dmPolicy": "open"
+      "botToken": "123:ABC"
     }
   }
 }
@@ -329,19 +235,14 @@ resolve("openai/gpt-4o")
 
 ```
 Clawdex.Application
-├── Clawdex.Config
+├── Clawdex.Config.Loader
 ├── Clawdex.Repo (Ecto — SQLite)
 ├── Clawdex.Session.DynamicSupervisor
 ├── Clawdex.Session.Registry
-├── Clawdex.Pairing (GenServer — manages codes + approvals)
-├── Clawdex.Channel.Telegram (if configured)
-├── Clawdex.Channel.Discord (if configured — Nostrum consumer)
-├── Clawdex.Channel.Slack (if configured — Socket Mode WS)
+├── Clawdex.Channel.Telegram
 ├── Clawdex.Router
 └── Bandit (health endpoint)
 ```
-
-Channels are started conditionally based on config — if no `discord` config, the Discord adapter is not started.
 
 ---
 
@@ -349,19 +250,18 @@ Channels are started conditionally based on config — if no `discord` config, t
 
 | Test | Type |
 |---|---|
-| `llm/openai_test.exs` | Unit (mocked HTTP) |
+| `llm/openrouter_test.exs` | Unit (mocked HTTP) |
 | `llm/streaming_test.exs` | Unit — SSE parsing, chunk accumulation |
 | `llm/resolver_test.exs` | Unit — model string → provider mapping |
-| `channel/discord_test.exs` | Unit — mention stripping, event filtering |
-| `channel/slack_test.exs` | Unit — event parsing, thread handling |
 | `session/store_test.exs` | Integration — SQLite persistence round-trip |
-| `pairing_test.exs` | Unit — code generation, approval, allowlist check |
-| `router_test.exs` (updated) | Integration — multi-channel routing, streaming |
+| `router_test.exs` (updated) | Integration — model switching, streaming |
 
 ---
 
 ## Out of Scope for Phase 2
 
+- Additional channels (Discord, Slack)
+- DM pairing / allowlists
 - Tool execution (bash, browser, etc.)
 - WebSocket control protocol (CLI ↔ gateway)
 - Web UI / WebChat
@@ -369,4 +269,4 @@ Channels are started conditionally based on config — if no `discord` config, t
 - Media (images, audio, video)
 - Cron / scheduled jobs
 - Webhooks
-- Model failover / auth profiles
+- Workspace files (SOUL.md, MEMORY.md, etc.)

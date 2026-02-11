@@ -48,6 +48,16 @@ defmodule Clawdex.Channel.Stub do
       [] -> :ok
     end
 
+    {:ok, "msg_123"}
+  end
+
+  @impl true
+  def edit_reply(chat_id, message_id, text) do
+    case :ets.lookup(@table, :test_pid) do
+      [{:test_pid, pid}] -> send(pid, {:reply_edited, chat_id, message_id, text})
+      [] -> :ok
+    end
+
     :ok
   end
 end
