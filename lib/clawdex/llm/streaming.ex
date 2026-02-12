@@ -11,7 +11,6 @@ defmodule Clawdex.LLM.Streaming do
     :chat_id,
     :message_id,
     :channel_module,
-    :timer_ref,
     buffer: "",
     last_sent: "",
     last_sent_at: 0
@@ -37,7 +36,6 @@ defmodule Clawdex.LLM.Streaming do
     end)
     |> case do
       %__MODULE__{} = final ->
-        cancel_timer(final.timer_ref)
         send_final(final)
         {:ok, final.buffer}
 
@@ -67,16 +65,14 @@ defmodule Clawdex.LLM.Streaming do
     if chars_diff >= @min_chars or time_diff >= @update_interval do
       do_edit(state)
     else
-      schedule_update(state)
+      state
     end
   end
 
   defp do_edit(state) do
-    cancel_timer(state.timer_ref)
-
     case state.channel_module.edit_reply(state.chat_id, state.message_id, state.buffer <> " ▍") do
       :ok ->
-        %{state | last_sent: state.buffer, last_sent_at: now_ms(), timer_ref: nil}
+        %{state | last_sent: state.buffer, last_sent_at: now_ms()}
 
       {:error, _} ->
         state
@@ -90,16 +86,6 @@ defmodule Clawdex.LLM.Streaming do
   defp send_final(state) do
     state.channel_module.edit_reply(state.chat_id, state.message_id, state.buffer)
   end
-
-  defp schedule_update(%{timer_ref: nil} = state) do
-    ref = Process.send_after(self(), {:stream_update, state.chat_id}, @update_interval)
-    %{state | timer_ref: ref}
-  end
-
-  defp schedule_update(state), do: state
-
-  defp cancel_timer(nil), do: :ok
-  defp cancel_timer(ref), do: Process.cancel_timer(ref)
 
   defp now_ms, do: System.monotonic_time(:millisecond)
 end
