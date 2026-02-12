@@ -15,6 +15,7 @@ defmodule Clawdex.Application do
       config_children(config_opts) ++
         repo_children() ++
         [
+          {Phoenix.PubSub, name: Clawdex.PubSub},
           {Registry, keys: :unique, name: Clawdex.Session.Registry},
           {DynamicSupervisor, strategy: :one_for_one, name: Clawdex.Session.DynamicSupervisor},
           {Task.Supervisor, name: Clawdex.TaskSupervisor}
@@ -41,7 +42,7 @@ defmodule Clawdex.Application do
   end
 
   defp start_optional_children(sup) do
-    for child <- channel_children() ++ health_children() do
+    for child <- channel_children() ++ endpoint_children() do
       Supervisor.start_child(sup, child)
     end
   end
@@ -94,10 +95,9 @@ defmodule Clawdex.Application do
     end
   end
 
-  defp health_children do
-    if Application.get_env(:clawdex, :start_health, true) do
-      port = Application.get_env(:clawdex, :health_port, 4000)
-      [{Bandit, plug: Clawdex.Health, port: port}]
+  defp endpoint_children do
+    if Application.get_env(:clawdex, :start_endpoint, true) do
+      [ClawdexWeb.Endpoint]
     else
       []
     end

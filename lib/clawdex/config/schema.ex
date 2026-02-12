@@ -6,7 +6,8 @@ defmodule Clawdex.Config.Schema do
     :gemini,
     :anthropic,
     :openrouter,
-    :channels
+    :channels,
+    :gateway
   ]
 
   @type t :: %__MODULE__{
@@ -14,14 +15,29 @@ defmodule Clawdex.Config.Schema do
           gemini: gemini(),
           anthropic: anthropic() | nil,
           openrouter: openrouter() | nil,
-          channels: channels()
+          channels: channels(),
+          gateway: gateway() | nil
         }
 
   @type agent :: %{
           model: String.t(),
           system_prompt: String.t(),
           max_history_messages: integer(),
-          context_window_percent: integer()
+          context_window_percent: integer(),
+          workspace: String.t(),
+          tools: tools_policy(),
+          max_tool_iterations: integer()
+        }
+
+  @type tools_policy :: %{
+          allow: [String.t()],
+          deny: [String.t()]
+        }
+
+  @type gateway :: %{
+          port: integer(),
+          bind: String.t(),
+          auth: %{token: String.t()}
         }
 
   @type gemini :: %{
@@ -55,7 +71,8 @@ defmodule Clawdex.Config.Schema do
          gemini: gemini,
          anthropic: validate_anthropic(raw),
          openrouter: validate_openrouter(raw),
-         channels: channels
+         channels: channels,
+         gateway: validate_gateway(raw)
        }}
     end
   end
@@ -63,12 +80,17 @@ defmodule Clawdex.Config.Schema do
   def validate(_), do: {:error, "config must be a map"}
 
   defp validate_agent(%{"agent" => %{"model" => model} = agent}) when is_binary(model) do
+    tools = validate_tools_policy(Map.get(agent, "tools", %{}))
+
     {:ok,
      %{
        model: model,
        system_prompt: Map.get(agent, "systemPrompt", "You are a helpful personal assistant."),
        max_history_messages: Map.get(agent, "maxHistoryMessages", 50),
-       context_window_percent: Map.get(agent, "contextWindowPercent", 80)
+       context_window_percent: Map.get(agent, "contextWindowPercent", 80),
+       workspace: Map.get(agent, "workspace", "~/.clawdex/workspace"),
+       tools: tools,
+       max_tool_iterations: Map.get(agent, "maxToolIterations", 10)
      }}
   end
 
@@ -130,4 +152,29 @@ defmodule Clawdex.Config.Schema do
         {:ok, %{telegram: %{bot_token: token}}}
     end
   end
+
+  defp validate_gateway(%{"gateway" => gw}) when is_map(gw) do
+    token =
+      case get_in(gw, ["auth", "token"]) do
+        t when is_binary(t) and t != "" -> t
+        _ -> nil
+      end
+
+    %{
+      port: Map.get(gw, "port", 4000),
+      bind: Map.get(gw, "bind", "loopback"),
+      auth: %{token: token}
+    }
+  end
+
+  defp validate_gateway(_), do: nil
+
+  defp validate_tools_policy(tools) when is_map(tools) do
+    %{
+      allow: Map.get(tools, "allow", ["bash", "read", "write", "edit"]),
+      deny: Map.get(tools, "deny", [])
+    }
+  end
+
+  defp validate_tools_policy(_), do: %{allow: ["bash", "read", "write", "edit"], deny: []}
 end
