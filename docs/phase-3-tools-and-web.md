@@ -404,4 +404,5 @@ Clawdex.Application
 - Media (images, audio)
 - Voice / TTS
 - Browser automation
+- TUI (Terminal UI) — planned for a future phase
 - Companion apps (macOS/iOS/Android)

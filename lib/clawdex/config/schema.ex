@@ -4,6 +4,7 @@ defmodule Clawdex.Config.Schema do
   defstruct [
     :agent,
     :gemini,
+    :anthropic,
     :openrouter,
     :channels
   ]
@@ -11,6 +12,7 @@ defmodule Clawdex.Config.Schema do
   @type t :: %__MODULE__{
           agent: agent(),
           gemini: gemini(),
+          anthropic: anthropic() | nil,
           openrouter: openrouter() | nil,
           channels: channels()
         }
@@ -23,6 +25,10 @@ defmodule Clawdex.Config.Schema do
         }
 
   @type gemini :: %{
+          api_key: String.t()
+        }
+
+  @type anthropic :: %{
           api_key: String.t()
         }
 
@@ -47,6 +53,7 @@ defmodule Clawdex.Config.Schema do
        %__MODULE__{
          agent: agent,
          gemini: gemini,
+         anthropic: validate_anthropic(raw),
          openrouter: validate_openrouter(raw),
          channels: channels
        }}
@@ -80,12 +87,31 @@ defmodule Clawdex.Config.Schema do
     end
   end
 
+  defp validate_anthropic(%{"anthropic" => %{"apiKey" => key}})
+       when is_binary(key) and key != "" do
+    %{api_key: key}
+  end
+
+  defp validate_anthropic(_) do
+    case System.get_env("ANTHROPIC_API_KEY") do
+      nil -> nil
+      "" -> nil
+      key -> %{api_key: key}
+    end
+  end
+
   defp validate_openrouter(%{"openrouter" => %{"apiKey" => key}})
        when is_binary(key) and key != "" do
     %{api_key: key}
   end
 
-  defp validate_openrouter(_), do: nil
+  defp validate_openrouter(_) do
+    case System.get_env("OPENROUTER_API_KEY") do
+      nil -> nil
+      "" -> nil
+      key -> %{api_key: key}
+    end
+  end
 
   defp validate_channels(%{"channels" => %{"telegram" => %{"botToken" => token}}})
        when is_binary(token) and token != "" do
@@ -94,9 +120,14 @@ defmodule Clawdex.Config.Schema do
 
   defp validate_channels(_) do
     case System.get_env("TELEGRAM_BOT_TOKEN") do
-      nil -> {:error, "channels.telegram.botToken is required (config or TELEGRAM_BOT_TOKEN env var)"}
-      "" -> {:error, "channels.telegram.botToken is required (config or TELEGRAM_BOT_TOKEN env var)"}
-      token -> {:ok, %{telegram: %{bot_token: token}}}
+      nil ->
+        {:error, "channels.telegram.botToken is required (config or TELEGRAM_BOT_TOKEN env var)"}
+
+      "" ->
+        {:error, "channels.telegram.botToken is required (config or TELEGRAM_BOT_TOKEN env var)"}
+
+      token ->
+        {:ok, %{telegram: %{bot_token: token}}}
     end
   end
 end

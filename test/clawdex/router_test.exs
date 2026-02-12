@@ -179,6 +179,38 @@ defmodule Clawdex.RouterTest do
     assert text =~ "Model switched to: openai/gpt-4o"
   end
 
+  test "/model rejects model name without provider prefix" do
+    message = %{
+      channel: :telegram,
+      chat_id: 124,
+      sender_id: 456,
+      sender_name: "Test",
+      text: "/model claude-3-5-haiku-20241022",
+      timestamp: DateTime.utc_now()
+    }
+
+    Router.handle_inbound(message)
+    assert_receive {:reply_sent, 124, text}, 500
+    assert text =~ "Invalid format"
+    assert text =~ "provider/model-name"
+  end
+
+  test "/model rejects unknown provider" do
+    message = %{
+      channel: :telegram,
+      chat_id: 124,
+      sender_id: 456,
+      sender_name: "Test",
+      text: "/model fakeprovider/some-model",
+      timestamp: DateTime.utc_now()
+    }
+
+    Router.handle_inbound(message)
+    assert_receive {:reply_sent, 124, text}, 500
+    assert text =~ "Unknown provider: `fakeprovider`"
+    assert text =~ "Valid providers:"
+  end
+
   test "sends error when unknown provider and no openrouter key" do
     Clawdex.LLM.Stub.set_response({:error, :unknown_provider})
 

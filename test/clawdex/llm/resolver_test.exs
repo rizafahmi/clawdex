@@ -7,6 +7,7 @@ defmodule Clawdex.LLM.ResolverTest do
   @config %Schema{
     agent: %{model: "gemini/gemini-2.5-flash", system_prompt: "Be helpful."},
     gemini: %{api_key: "gemini-key"},
+    anthropic: %{api_key: "anthropic-key"},
     openrouter: %{api_key: "openrouter-key"},
     channels: %{telegram: %{bot_token: "test-token"}}
   }
@@ -27,9 +28,19 @@ defmodule Clawdex.LLM.ResolverTest do
       assert opts[:api_key] == "gemini-key"
     end
 
-    test "resolves anthropic/ model to OpenRouter" do
-      assert {:ok, {Clawdex.LLM.OpenRouter, "anthropic/claude-sonnet-4-20250514", opts}} =
+    test "resolves anthropic/ model to Anthropic when key is present" do
+      assert {:ok, {Clawdex.LLM.Anthropic, "claude-sonnet-4-20250514", opts}} =
                Resolver.resolve("anthropic/claude-sonnet-4-20250514", @config)
+
+      assert opts[:api_key] == "anthropic-key"
+      assert opts[:model] == "claude-sonnet-4-20250514"
+    end
+
+    test "resolves anthropic/ model to OpenRouter when anthropic key is missing" do
+      config = %{@config | anthropic: nil}
+
+      assert {:ok, {Clawdex.LLM.OpenRouter, "anthropic/claude-sonnet-4-20250514", opts}} =
+               Resolver.resolve("anthropic/claude-sonnet-4-20250514", config)
 
       assert opts[:api_key] == "openrouter-key"
       assert opts[:model] == "anthropic/claude-sonnet-4-20250514"
@@ -50,7 +61,7 @@ defmodule Clawdex.LLM.ResolverTest do
     end
 
     test "returns error when openrouter key is missing for non-gemini model" do
-      config = %{@config | openrouter: nil}
+      config = %{@config | anthropic: nil, openrouter: nil}
 
       assert {:error, :unknown_provider} =
                Resolver.resolve("anthropic/claude-sonnet-4-20250514", config)

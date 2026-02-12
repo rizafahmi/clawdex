@@ -496,3 +496,13 @@ Clawdex.Application
 | Signal (signal-cli) | ⚠️ Requires Java subprocess |
 | iMessage | ⚠️ macOS-only, requires AppleScript bridge |
 | macOS/iOS/Android native apps | ❌ Out of scope (keep existing Swift/Kotlin apps, connect via protocol) |
+
+## Out of Scope
+
+- Version control the contents (SOULS.md, MEMORY.md, etc) to see the evolution of the bot
+- Discord
+- WhatsApp (Baileys) — requires Node.js sidecar or protocol reimplementation
+- Signal (signal-cli) — requires Java subprocess
+- Make it multi-tenant, SaaS style so end user able to use it via web interface
+- iMessage — macOS-only, requires AppleScript bridge
+- macOS/iOS/Android native apps — out of scope (keep existing Swift/Kotlin apps, connect via protocol) 

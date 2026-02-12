@@ -5,6 +5,8 @@ defmodule Clawdex.Application do
 
   require Logger
 
+  alias Clawdex.Config.Loader
+
   @impl true
   def start(_type, _args) do
     config_opts = config_opts()
@@ -33,7 +35,7 @@ defmodule Clawdex.Application do
   defp configure_telegex do
     if Application.get_env(:clawdex, :start_telegram, true) and
          Application.get_env(:clawdex, :start_config, true) do
-      config = Clawdex.Config.Loader.get()
+      config = Loader.get()
       Application.put_env(:telegex, :token, config.channels.telegram.bot_token)
     end
   end

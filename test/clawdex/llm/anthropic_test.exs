@@ -80,7 +80,13 @@ defmodule Clawdex.LLM.AnthropicTest do
       end)
 
       messages = [%{"role" => "user", "content" => "Hi"}]
-      opts = [api_key: "test-key", model: "anthropic/claude-sonnet-4-20250514", base_url: "http://localhost:#{bypass.port}"]
+
+      opts = [
+        api_key: "test-key",
+        model: "anthropic/claude-sonnet-4-20250514",
+        base_url: "http://localhost:#{bypass.port}"
+      ]
+
       assert {:ok, "OK"} = Anthropic.chat(messages, opts)
     end
 

@@ -4,6 +4,7 @@ defmodule Clawdex.Channel.Telegram do
   use GenServer
 
   require Logger
+  alias Clawdex.Config.Loader
 
   @behaviour Clawdex.Channel.Behaviour
 
@@ -16,9 +17,16 @@ defmodule Clawdex.Channel.Telegram do
 
   @impl Clawdex.Channel.Behaviour
   def send_reply(chat_id, text) do
-    token = Clawdex.Config.Loader.get().channels.telegram.bot_token
+    token = Loader.get().channels.telegram.bot_token
 
-    case api_request(token, "sendMessage", %{chat_id: chat_id, text: text}) do
+    params = %{
+      chat_id: chat_id,
+      text: escape_markdown_v2(text),
+      parse_mode: "MarkdownV2",
+      link_preview_options: %{is_disabled: true}
+    }
+
+    case api_request(token, "sendMessage", params) do
       {:ok, %{"message_id" => message_id}} -> {:ok, message_id}
       {:ok, _} -> {:ok, nil}
       {:error, reason} -> {:error, reason}
@@ -27,12 +35,14 @@ defmodule Clawdex.Channel.Telegram do
 
   @impl Clawdex.Channel.Behaviour
   def edit_reply(chat_id, message_id, text) do
-    token = Clawdex.Config.Loader.get().channels.telegram.bot_token
+    token = Loader.get().channels.telegram.bot_token
 
     case api_request(token, "editMessageText", %{
            chat_id: chat_id,
            message_id: message_id,
-           text: text
+           text: escape_markdown_v2(text),
+           parse_mode: "MarkdownV2",
+           link_preview_options: %{is_disabled: true}
          }) do
       {:ok, _} -> :ok
       {:error, reason} -> {:error, reason}
@@ -41,7 +51,7 @@ defmodule Clawdex.Channel.Telegram do
 
   @impl GenServer
   def init(_opts) do
-    config = Clawdex.Config.Loader.get()
+    config = Loader.get()
     token = config.channels.telegram.bot_token
     send(self(), :poll)
     {:ok, %{token: token, offset: 0}}
@@ -93,6 +103,27 @@ defmodule Clawdex.Channel.Telegram do
   end
 
   defp handle_update(_), do: :ok
+
+  @markdown_v2_special_chars ~r/([_*\[\]()~`>#+\-=|{}.!\\])/
+
+  defp escape_markdown_v2(text) do
+    text
+    |> String.split("`", parts: :infinity)
+    |> escape_markdown_v2_parts(true, [])
+    |> Enum.reverse()
+    |> Enum.join()
+  end
+
+  defp escape_markdown_v2_parts([], _outside?, acc), do: acc
+
+  defp escape_markdown_v2_parts([part | rest], true, acc) do
+    escaped = Regex.replace(@markdown_v2_special_chars, part, "\\\\\\1")
+    escape_markdown_v2_parts(rest, false, [escaped | acc])
+  end
+
+  defp escape_markdown_v2_parts([part | rest], false, acc) do
+    escape_markdown_v2_parts(rest, true, ["`" <> part <> "`" | acc])
+  end
 
   defp api_request(token, method, params) do
     url = "#{@base_url}#{token}/#{method}"

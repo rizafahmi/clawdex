@@ -2,7 +2,7 @@ defmodule Clawdex.Session.StoreTest do
   use ExUnit.Case, async: false
 
   alias Clawdex.Session.Store
-  alias Clawdex.Session.Store.{SessionRecord, MessageRecord}
+  alias Clawdex.Session.Store.{MessageRecord, SessionRecord}
 
   @test_db "store_test_#{System.unique_integer([:positive])}.db"
 

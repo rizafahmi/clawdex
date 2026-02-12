@@ -18,7 +18,7 @@ defmodule Clawdex.Session.Message do
     }
   end
 
-  @spec to_api_format(t()) :: %{role: String.t(), content: String.t()}
+  @spec to_api_format(t()) :: %{required(String.t()) => String.t()}
   def to_api_format(%__MODULE__{role: role, content: content}) do
     %{"role" => to_string(role), "content" => content}
   end

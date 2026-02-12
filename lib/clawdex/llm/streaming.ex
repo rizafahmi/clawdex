@@ -17,7 +17,8 @@ defmodule Clawdex.LLM.Streaming do
     last_sent_at: 0
   ]
 
-  @spec stream_to_channel(Enumerable.t(), term(), module()) :: {:ok, String.t()} | {:error, term()}
+  @spec stream_to_channel(Enumerable.t(), term(), module()) ::
+          {:ok, String.t()} | {:error, term()}
   def stream_to_channel(chunks, chat_id, channel_module) do
     state = %__MODULE__{
       chat_id: chat_id,

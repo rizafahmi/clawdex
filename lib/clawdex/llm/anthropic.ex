@@ -3,6 +3,8 @@ defmodule Clawdex.LLM.Anthropic do
 
   @behaviour Clawdex.LLM.Behaviour
 
+  alias Clawdex.LLM.HTTP
+
   @default_model "claude-sonnet-4-20250514"
   @default_base_url "https://api.anthropic.com/v1"
   @default_max_tokens 8192
@@ -15,7 +17,9 @@ defmodule Clawdex.LLM.Anthropic do
     model = opts |> Keyword.get(:model, @default_model) |> normalize_model()
     max_tokens = Keyword.get(opts, :max_tokens, @default_max_tokens)
     system = Keyword.get(opts, :system)
-    base_url = opts[:base_url] || Application.get_env(:clawdex, :anthropic_base_url, @default_base_url)
+
+    base_url =
+      opts[:base_url] || Application.get_env(:clawdex, :anthropic_base_url, @default_base_url)
 
     url = "#{base_url}/messages"
     body = build_body(messages, model, max_tokens, system)
@@ -27,7 +31,7 @@ defmodule Clawdex.LLM.Anthropic do
     ]
 
     Req.post(url, json: body, headers: headers, receive_timeout: @timeout)
-    |> Clawdex.LLM.HTTP.map_response(&extract_text/1)
+    |> HTTP.map_response(&extract_text/1)
   end
 
   defp normalize_model("anthropic/" <> model), do: model

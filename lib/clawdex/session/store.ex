@@ -4,7 +4,7 @@ defmodule Clawdex.Session.Store do
   import Ecto.Query
 
   alias Clawdex.Repo
-  alias Clawdex.Session.Store.{SessionRecord, MessageRecord}
+  alias Clawdex.Session.Store.{MessageRecord, SessionRecord}
 
   @spec find_or_create_session(String.t()) :: {:ok, SessionRecord.t()} | {:error, term()}
   def find_or_create_session(session_key) do
@@ -38,7 +38,9 @@ defmodule Clawdex.Session.Store do
     token_count = estimate_tokens(attrs.content)
 
     %MessageRecord{}
-    |> MessageRecord.changeset(Map.merge(attrs, %{session_id: session_id, token_count: token_count}))
+    |> MessageRecord.changeset(
+      Map.merge(attrs, %{session_id: session_id, token_count: token_count})
+    )
     |> Repo.insert()
     |> tap(fn
       {:ok, _} -> update_message_count(session_id)

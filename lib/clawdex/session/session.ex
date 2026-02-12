@@ -4,6 +4,7 @@ defmodule Clawdex.Session do
   use GenServer
 
   alias Clawdex.Session.Message
+  alias Clawdex.Session.Store
 
   @max_messages 50
   @idle_timeout :timer.minutes(30)
@@ -18,9 +19,7 @@ defmodule Clawdex.Session do
   ]
 
   def start_link(session_key) do
-    GenServer.start_link(__MODULE__, session_key,
-      name: via(session_key)
-    )
+    GenServer.start_link(__MODULE__, session_key, name: via(session_key))
   end
 
   @spec append(String.t(), Message.t()) :: :ok
@@ -77,7 +76,9 @@ defmodule Clawdex.Session do
 
   @impl true
   def handle_call({:append, message}, _from, state) do
-    Task.Supervisor.start_child(Clawdex.TaskSupervisor, fn -> persist_message(state.store_id, message) end)
+    Task.Supervisor.start_child(Clawdex.TaskSupervisor, fn ->
+      persist_message(state.store_id, message)
+    end)
 
     messages =
       (state.messages ++ [message])
@@ -114,7 +115,10 @@ defmodule Clawdex.Session do
 
   @impl true
   def handle_call({:set_model, model}, _from, state) do
-    Task.Supervisor.start_child(Clawdex.TaskSupervisor, fn -> persist_model_override(state.store_id, model) end)
+    Task.Supervisor.start_child(Clawdex.TaskSupervisor, fn ->
+      persist_model_override(state.store_id, model)
+    end)
+
     state = %{state | model_override: model, last_active_at: DateTime.utc_now()}
     {:reply, :ok, state, @idle_timeout}
   end
@@ -131,8 +135,6 @@ defmodule Clawdex.Session do
 
   defp load_from_store(session_key) do
     if store_enabled?() do
-      alias Clawdex.Session.Store
-
       case Store.find_or_create_session(session_key) do
         {:ok, record} ->
           messages =
@@ -155,7 +157,7 @@ defmodule Clawdex.Session do
   defp persist_message(nil, _message), do: :ok
 
   defp persist_message(store_id, %Message{} = message) do
-    Clawdex.Session.Store.append_message(store_id, %{
+    Store.append_message(store_id, %{
       role: to_string(message.role),
       content: message.content
     })
@@ -164,10 +166,13 @@ defmodule Clawdex.Session do
   end
 
   defp clear_store(nil), do: :ok
-  defp clear_store(store_id), do: Clawdex.Session.Store.clear_messages(store_id)
+  defp clear_store(store_id), do: Store.clear_messages(store_id)
 
   defp persist_model_override(nil, _model), do: :ok
-  defp persist_model_override(store_id, model), do: Clawdex.Session.Store.set_model_override(store_id, model)
+
+  defp persist_model_override(store_id, model) do
+    Store.set_model_override(store_id, model)
+  end
 
   defp role_from_string("user"), do: :user
   defp role_from_string("assistant"), do: :assistant

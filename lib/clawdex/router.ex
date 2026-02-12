@@ -25,35 +25,45 @@ defmodule Clawdex.Router do
   end
 
   defp handle_command("/reset" <> _, message) do
-    with_session(message, fn session_key, _pid ->
-      Session.reset(session_key)
-      send_reply(message, "Session reset.")
-    end, fn _ ->
-      send_reply(message, "Session reset.")
-    end)
+    with_session(
+      message,
+      fn session_key, _pid ->
+        Session.reset(session_key)
+        send_reply(message, "Session reset.")
+      end,
+      fn _ ->
+        send_reply(message, "Session reset.")
+      end
+    )
   end
 
   defp handle_command("/status" <> _, message) do
     config = Loader.get()
 
-    with_session(message, fn session_key, _pid ->
-      info = Session.get_info(session_key)
-      model = info.model_override || config.agent.model
+    with_session(
+      message,
+      fn session_key, _pid ->
+        info = Session.get_info(session_key)
+        model = info.model_override || config.agent.model
 
-      status = """
-      Model: #{model}
-      Messages: #{info.message_count}
-      Session started: #{info.created_at}
-      """
-      send_reply(message, String.trim(status))
-    end, fn _ ->
-      status = """
-      Model: #{config.agent.model}
-      Messages: 0
-      No active session.
-      """
-      send_reply(message, String.trim(status))
-    end)
+        status = """
+        Model: #{model}
+        Messages: #{info.message_count}
+        Session started: #{info.created_at}
+        """
+
+        send_reply(message, String.trim(status))
+      end,
+      fn _ ->
+        status = """
+        Model: #{config.agent.model}
+        Messages: 0
+        No active session.
+        """
+
+        send_reply(message, String.trim(status))
+      end
+    )
   end
 
   defp handle_command("/model" <> rest, message) do
@@ -64,19 +74,13 @@ defmodule Clawdex.Router do
   end
 
   defp handle_command("/compact" <> _, message) do
-    with_session(message, fn session_key, _pid ->
-      case Session.get_history(session_key) do
-        [_, _, _, _ | _] = history ->
-          Task.Supervisor.start_child(Clawdex.TaskSupervisor, fn ->
-            do_compact(session_key, history, message)
-          end)
-
-        _ ->
-          send_reply(message, "Not enough messages to compact.")
+    with_session(
+      message,
+      &handle_compact_session(&1, message),
+      fn _ ->
+        send_reply(message, "No active session to compact.")
       end
-    end, fn _ ->
-      send_reply(message, "No active session to compact.")
-    end)
+    )
   end
 
   defp handle_command("/help" <> _, message) do
@@ -84,8 +88,8 @@ defmodule Clawdex.Router do
     Available commands:
     /reset — Clear session history
     /status — Show model, message count, session age
-    /model <name> — Switch model (e.g., /model openai/gpt-4o)
-    /model — Show current model
+    /model <provider/name> — Switch model (e.g., /model anthropic/claude-3-5-haiku-20241022)
+    /model — Show current model and available providers
     /compact — Summarize old messages to free context window
     /help — Show this help message
     """
@@ -99,16 +103,34 @@ defmodule Clawdex.Router do
     :ok
   end
 
+  defp handle_compact_session(session_key, message) do
+    case Session.get_history(session_key) do
+      [_, _, _, _ | _] = history ->
+        Task.Supervisor.start_child(Clawdex.TaskSupervisor, fn ->
+          do_compact(session_key, history, message)
+        end)
+
+      _ ->
+        send_reply(message, "Not enough messages to compact.")
+    end
+  end
+
+  @model_usage "Usage:\n`/model provider/model-name`\n\nExample:\n`/model anthropic/claude-3-5-haiku-20241022`"
+
   defp show_current_model(message) do
     config = Loader.get()
     links = model_doc_links(config)
 
-    with_session(message, fn session_key, _pid ->
-      current = Session.get_model(session_key) || config.agent.model
-      send_reply(message, "Current model: #{current}\n\n#{links}")
-    end, fn _ ->
-      send_reply(message, "Current model: #{config.agent.model}\n\n#{links}")
-    end)
+    with_session(
+      message,
+      fn session_key, _pid ->
+        current = Session.get_model(session_key) || config.agent.model
+        send_reply(message, "Current model: #{current}\n\n#{@model_usage}\n\n#{links}")
+      end,
+      fn _ ->
+        send_reply(message, "Current model: #{config.agent.model}\n\n#{@model_usage}\n\n#{links}")
+      end
+    )
   end
 
   defp model_doc_links(config) do
@@ -131,12 +153,42 @@ defmodule Clawdex.Router do
     end
   end
 
+  @valid_providers ~w(anthropic gemini openrouter openai)
+
   defp switch_model(message, model_name) do
-    session_key = session_key(message)
-    {:ok, _pid} = SessionRegistry.get_or_start(session_key)
-    Session.set_model(session_key, model_name)
-    send_reply(message, "Model switched to: #{model_name}")
-    :ok
+    case validate_model_format(model_name) do
+      :ok ->
+        session_key = session_key(message)
+        {:ok, _pid} = SessionRegistry.get_or_start(session_key)
+        Session.set_model(session_key, model_name)
+        send_reply(message, "Model switched to: #{model_name}")
+        :ok
+
+      {:error, reason} ->
+        send_reply(message, reason)
+        :ok
+    end
+  end
+
+  defp validate_model_format(model_name) do
+    case String.split(model_name, "/", parts: 2) do
+      [provider, model_id] when provider != "" and model_id != "" ->
+        if provider in @valid_providers do
+          :ok
+        else
+          {:error,
+           "Unknown provider: `#{provider}`\n" <>
+             "Valid providers: `#{Enum.join(@valid_providers, "`, `")}`\n\n" <>
+             "Usage:\n`/model provider/model-name`"}
+        end
+
+      _ ->
+        {:error,
+         "Invalid format.\n\n" <>
+           "Usage:\n`/model provider/model-name`\n\n" <>
+           "Example:\n`/model anthropic/claude-3-5-haiku-20241022`\n\n" <>
+           "Valid providers: `#{Enum.join(@valid_providers, "`, `")}`"}
+    end
   end
 
   defp process_message(message) do
@@ -197,7 +249,12 @@ defmodule Clawdex.Router do
 
     summary_prompt =
       Enum.map(to_summarize, &Message.to_api_format/1) ++
-        [%{"role" => "user", "content" => "Summarize the conversation above in a concise paragraph."}]
+        [
+          %{
+            "role" => "user",
+            "content" => "Summarize the conversation above in a concise paragraph."
+          }
+        ]
 
     model = Session.get_model(session_key) || config.agent.model
 
@@ -223,6 +280,7 @@ defmodule Clawdex.Router do
       {:ok, pid} -> success_fun.(session_key, pid)
       :not_found -> not_found_fun.(session_key)
     end
+
     :ok
   end
 

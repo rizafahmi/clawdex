@@ -3,11 +3,13 @@ defmodule Clawdex.Health do
 
   use Plug.Router
 
-  plug :match
-  plug :dispatch
+  plug(:match)
+  plug(:dispatch)
+
+  alias Clawdex.Session.SessionRegistry
 
   get "/health" do
-    sessions = length(Clawdex.Session.SessionRegistry.list())
+    sessions = length(SessionRegistry.list())
 
     body =
       Jason.encode!(%{

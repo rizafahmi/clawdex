@@ -16,15 +16,18 @@ defmodule Clawdex.LLM.GeminiTest do
 
       conn
       |> Plug.Conn.put_resp_content_type("application/json")
-      |> Plug.Conn.resp(200, Jason.encode!(%{
-        "candidates" => [
-          %{
-            "content" => %{
-              "parts" => [%{"text" => "Hello from Gemini"}]
+      |> Plug.Conn.resp(
+        200,
+        Jason.encode!(%{
+          "candidates" => [
+            %{
+              "content" => %{
+                "parts" => [%{"text" => "Hello from Gemini"}]
+              }
             }
-          }
-        ]
-      }))
+          ]
+        })
+      )
     end)
 
     base_url = "http://localhost:#{bypass.port}/v1beta/models"
@@ -38,11 +41,14 @@ defmodule Clawdex.LLM.GeminiTest do
     Bypass.expect_once(bypass, "POST", "/v1beta/models/gemini-pro:generateContent", fn conn ->
       conn
       |> Plug.Conn.put_resp_content_type("application/json")
-      |> Plug.Conn.resp(200, Jason.encode!(%{
-        "candidates" => [
-          %{"finishReason" => "SAFETY"}
-        ]
-      }))
+      |> Plug.Conn.resp(
+        200,
+        Jason.encode!(%{
+          "candidates" => [
+            %{"finishReason" => "SAFETY"}
+          ]
+        })
+      )
     end)
 
     base_url = "http://localhost:#{bypass.port}/v1beta/models"
@@ -71,19 +77,23 @@ defmodule Clawdex.LLM.GeminiTest do
       {:ok, body, _conn} = Plug.Conn.read_body(conn)
       decoded_body = Jason.decode!(body)
 
-      assert get_in(decoded_body, ["systemInstruction", "parts", Access.at(0), "text"]) == "Be helpful"
+      assert get_in(decoded_body, ["systemInstruction", "parts", Access.at(0), "text"]) ==
+               "Be helpful"
 
       conn
       |> Plug.Conn.put_resp_content_type("application/json")
-      |> Plug.Conn.resp(200, Jason.encode!(%{
-        "candidates" => [
-          %{
-            "content" => %{
-              "parts" => [%{"text" => "OK"}]
+      |> Plug.Conn.resp(
+        200,
+        Jason.encode!(%{
+          "candidates" => [
+            %{
+              "content" => %{
+                "parts" => [%{"text" => "OK"}]
+              }
             }
-          }
-        ]
-      }))
+          ]
+        })
+      )
     end)
 
     base_url = "http://localhost:#{bypass.port}/v1beta/models"

@@ -7,13 +7,13 @@ defmodule Clawdex.Session.Store.SessionRecord do
   @type t :: %__MODULE__{}
 
   schema "sessions" do
-    field :session_key, :string
-    field :channel, :string
-    field :chat_id, :string
-    field :model_override, :string
-    field :message_count, :integer, default: 0
+    field(:session_key, :string)
+    field(:channel, :string)
+    field(:chat_id, :string)
+    field(:model_override, :string)
+    field(:message_count, :integer, default: 0)
 
-    has_many :messages, Clawdex.Session.Store.MessageRecord, foreign_key: :session_id
+    has_many(:messages, Clawdex.Session.Store.MessageRecord, foreign_key: :session_id)
 
     timestamps()
   end

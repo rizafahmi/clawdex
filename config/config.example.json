@@ -8,6 +8,9 @@
   "gemini": {
     "apiKey": "your-gemini-api-key-here"
   },
+  "anthropic": {
+    "apiKey": "your-anthropic-api-key-here"
+  },
   "openrouter": {
     "apiKey": "your-openrouter-api-key-here"
   },

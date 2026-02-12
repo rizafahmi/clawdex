@@ -22,9 +22,8 @@ defmodule Clawdex.Config.Loader do
   @spec load(String.t()) :: {:ok, Schema.t()} | {:error, term()}
   def load(path) do
     with {:ok, contents} <- read_file(path),
-         {:ok, decoded} <- decode_json(contents),
-         {:ok, config} <- Schema.validate(decoded) do
-      {:ok, config}
+         {:ok, decoded} <- decode_json(contents) do
+      Schema.validate(decoded)
     end
   end
 

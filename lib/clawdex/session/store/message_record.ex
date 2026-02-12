@@ -7,11 +7,11 @@ defmodule Clawdex.Session.Store.MessageRecord do
   @type t :: %__MODULE__{}
 
   schema "messages" do
-    belongs_to :session, Clawdex.Session.Store.SessionRecord
+    belongs_to(:session, Clawdex.Session.Store.SessionRecord)
 
-    field :role, :string
-    field :content, :string
-    field :token_count, :integer
+    field(:role, :string)
+    field(:content, :string)
+    field(:token_count, :integer)
 
     timestamps(updated_at: false)
   end

@@ -3,6 +3,8 @@ defmodule Clawdex.LLM.OpenRouter do
 
   @behaviour Clawdex.LLM.Behaviour
 
+  alias Clawdex.LLM.HTTP
+
   @default_model "anthropic/claude-sonnet-4-20250514"
   @timeout 120_000
 
@@ -11,7 +13,10 @@ defmodule Clawdex.LLM.OpenRouter do
     api_key = Keyword.fetch!(opts, :api_key)
     model = Keyword.get(opts, :model, @default_model)
     system = Keyword.get(opts, :system)
-    base_url = opts[:base_url] || Application.get_env(:clawdex, :openrouter_base_url, "https://openrouter.ai/api/v1")
+
+    base_url =
+      opts[:base_url] ||
+        Application.get_env(:clawdex, :openrouter_base_url, "https://openrouter.ai/api/v1")
 
     api_messages = build_messages(system, messages)
 
@@ -28,7 +33,7 @@ defmodule Clawdex.LLM.OpenRouter do
     ]
 
     Req.post(url, json: body, headers: headers, receive_timeout: @timeout)
-    |> Clawdex.LLM.HTTP.map_response(&extract_text/1)
+    |> HTTP.map_response(&extract_text/1)
   end
 
   defp build_messages(nil, messages), do: messages

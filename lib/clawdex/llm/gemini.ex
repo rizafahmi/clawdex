@@ -1,7 +1,10 @@
 defmodule Clawdex.LLM.Gemini do
   @moduledoc false
 
-  @behaviour Clawdex.LLM.Behaviour
+  alias Clawdex.LLM.Behaviour
+  alias Clawdex.LLM.HTTP
+
+  @behaviour Behaviour
 
   # Default to Gemini 2.5 Flash
   @default_model "gemini-2.5-flash"
@@ -12,13 +15,15 @@ defmodule Clawdex.LLM.Gemini do
   def chat(messages, opts \\ []) do
     api_key = Keyword.fetch!(opts, :api_key)
     model = opts |> Keyword.get(:model, @default_model) |> normalize_model()
-    base_url = opts[:base_url] || Application.get_env(:clawdex, :gemini_base_url, @default_base_url)
+
+    base_url =
+      opts[:base_url] || Application.get_env(:clawdex, :gemini_base_url, @default_base_url)
 
     url = "#{base_url}/#{model}:generateContent"
     body = build_body(messages, opts)
 
     Req.post(url, json: body, params: [key: api_key], receive_timeout: @timeout)
-    |> Clawdex.LLM.HTTP.map_response(&extract_text/1)
+    |> HTTP.map_response(&extract_text/1)
   end
 
   defp normalize_model("gemini/" <> model), do: model
@@ -46,13 +51,16 @@ defmodule Clawdex.LLM.Gemini do
 
   defp maybe_put_system(body, nil), do: body
   defp maybe_put_system(body, ""), do: body
+
   defp maybe_put_system(body, system) do
     Map.put(body, "systemInstruction", %{
       "parts" => [%{"text" => system}]
     })
   end
 
-  defp extract_text(%{"candidates" => [%{"content" => %{"parts" => [%{"text" => text} | _]}} | _]}) do
+  defp extract_text(%{
+         "candidates" => [%{"content" => %{"parts" => [%{"text" => text} | _]}} | _]
+       }) do
     {:ok, text}
   end
 
