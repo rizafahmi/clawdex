@@ -1,0 +1,19 @@
+<header class="border-b border-gray-800 bg-gray-900">
+  <nav class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+    <div class="flex h-14 items-center justify-between">
+      <div class="flex items-center gap-4">
+        <span class="text-lg font-bold text-emerald-400">Clawdex</span>
+      </div>
+      <div class="flex items-center gap-6">
+        <.link navigate={~p"/"} class="text-sm text-gray-300 hover:text-white">Dashboard</.link>
+        <.link navigate={~p"/chat"} class="text-sm text-gray-300 hover:text-white">Chat</.link>
+        <.link navigate={~p"/sessions"} class="text-sm text-gray-300 hover:text-white">Sessions</.link>
+        <.link navigate={~p"/config"} class="text-sm text-gray-300 hover:text-white">Config</.link>
+      </div>
+    </div>
+  </nav>
+</header>
+<main class="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+  <.flash_group flash={@flash} />
+  {@inner_content}
+</main>

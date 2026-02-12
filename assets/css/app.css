@@ -1,0 +1,27 @@
+@import "tailwindcss";
+
+@source "../../lib/clawdex_web/**/*";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@layer components {
+  .prose {
+    @apply text-gray-300 leading-relaxed;
+  }
+  
+  .prose h1 { @apply text-2xl font-bold text-gray-100 mb-4 mt-6; }
+  .prose h2 { @apply text-xl font-bold text-gray-100 mb-3 mt-5; }
+  .prose h3 { @apply text-lg font-semibold text-gray-100 mb-2 mt-4; }
+  .prose p { @apply mb-4; }
+  .prose ul { @apply list-disc list-outside ml-5 mb-4; }
+  .prose ol { @apply list-decimal list-outside ml-5 mb-4; }
+  .prose li { @apply mb-1; }
+  .prose a { @apply text-emerald-400 hover:text-emerald-300 underline; }
+  .prose blockquote { @apply border-l-4 border-gray-600 pl-4 italic text-gray-400 mb-4; }
+  .prose code { @apply font-mono text-sm bg-gray-900 px-1 py-0.5 rounded text-emerald-300; }
+  .prose pre { @apply bg-gray-950 p-4 rounded-lg overflow-x-auto mb-4 border border-gray-700; }
+  .prose pre code { @apply bg-transparent p-0 text-gray-300 block; }
+  .prose strong { @apply text-gray-100 font-bold; }
+  .prose em { @apply italic; }
+  .prose hr { @apply border-gray-700 my-6; }
+}
