@@ -31,7 +31,9 @@ defmodule Clawdex.MixProject do
       {:bandit, "~> 1.5"},
       {:ecto_sql, "~> 3.12"},
       {:ecto_sqlite3, "~> 0.17"},
-      {:bypass, "~> 2.1", only: :test}
+      {:bypass, "~> 2.1", only: :test},
+      {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
+      {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false}
     ]
   end
 
@@ -39,7 +41,8 @@ defmodule Clawdex.MixProject do
     [
       setup: ["deps.get", "ecto.setup"],
       "ecto.setup": ["ecto.create", "ecto.migrate"],
-      "ecto.reset": ["ecto.drop", "ecto.setup"]
+      "ecto.reset": ["ecto.drop", "ecto.setup"],
+      check: ["format", "credo --strict", "dialyzer"]
     ]
   end
 end

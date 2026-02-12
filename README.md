@@ -1,6 +1,6 @@
 # Clawdex
 
-A personal AI assistant gateway. Messages arrive on Telegram, route to LLMs (Google Gemini, OpenRouter), and replies go back. Conversations are persisted to SQLite, ensuring they survive application restarts.
+A personal AI assistant gateway. Messages arrive on Telegram, route to LLMs (Google Gemini, Anthropic Claude, OpenRouter), and replies go back. Conversations are persisted to SQLite, ensuring they survive application restarts.
 
 Simplified Elixir port of [openclaw](https://github.com/openclaw/openclaw).
 
@@ -26,6 +26,9 @@ cp config/config.example.json ~/.clawdex/config.json
   "gemini": {
     "apiKey": "your-gemini-api-key-here"
   },
+  "anthropic": {
+    "apiKey": "your-anthropic-api-key-here"
+  },
   "openrouter": {
     "apiKey": "your-openrouter-key-here"
   },
@@ -40,6 +43,7 @@ cp config/config.example.json ~/.clawdex/config.json
 You can also use environment variables instead of the config file:
 
 - `GEMINI_API_KEY` — falls back when `gemini.apiKey` is missing
+- `ANTHROPIC_API_KEY` — falls back when `anthropic.apiKey` is missing
 - `OPENROUTER_API_KEY` — falls back when `openrouter.apiKey` is missing
 - `TELEGRAM_BOT_TOKEN` — falls back when `channels.telegram.botToken` is missing
 - `CLAWDEX_CONFIG_PATH` — override the config file location
@@ -48,6 +52,7 @@ You can also use environment variables instead of the config file:
 
 4. Get API keys:
    - Gemini: [aistudio.google.com](https://aistudio.google.com/)
+   - Anthropic: [console.anthropic.com](https://console.anthropic.com/)
    - OpenRouter: [openrouter.ai](https://openrouter.ai/)
 
 ## Running
@@ -75,4 +80,12 @@ A health endpoint will be available at `http://localhost:4000/health`.
 
 ```sh
 mix test
+```
+
+## Code Quality
+
+Run formatting, linting (Credo), and static analysis (Dialyzer):
+
+```sh
+mix check
 ```
