@@ -1,5 +1,5 @@
 defmodule Clawdex.LLM.StreamingTest do
-  use ExUnit.Case, async: true
+  use ExUnit.Case, async: false
 
   alias Clawdex.LLM.Streaming
 
