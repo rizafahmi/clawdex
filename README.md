@@ -5,18 +5,15 @@
 
 A personal AI assistant gateway built on the BEAM. Messages arrive on Telegram (or via WebSocket), route to LLMs (Gemini, Anthropic Claude, OpenRouter), and replies stream back. Conversations are persisted to SQLite, ensuring they survive restarts.
 
-Simplified Elixir port of [openclaw](https://github.com/openclaw/openclaw).
+## Core Features
 
-## Why Elixir?
+Clawdex leverages the Erlang/OTP platform to provide an extremely robust and efficient runtime:
 
-Clawdex is built on Elixir and the Erlang/OTP platform, giving it properties that are hard to achieve in other stacks:
-
-- **Lightweight processes** — Each user conversation runs in its own isolated BEAM process, using only ~2 KB of memory. Thousands of concurrent sessions cost almost nothing.
-- **Fault tolerance** — OTP supervision trees automatically restart crashed processes. A single bad LLM response or tool failure never takes down the system.
-- **Concurrency** — Messages, LLM calls, and tool executions run concurrently across all users with no thread pools, mutexes, or async/await boilerplate.
-- **Soft real-time** — BEAM's preemptive scheduler ensures responsive streaming even under load. No single user can starve others.
-- **Hot code upgrades** — Update the running system without dropping connections (OTP release upgrades).
-- **Low memory footprint** — The entire gateway idles at ~50 MB, making it perfect for a personal VPS or Raspberry Pi.
+- **Lightweight efficiency** — Each user conversation runs in its own isolated process, using only ~2 KB of memory. Thousands of concurrent sessions cost almost nothing.
+- **Fault tolerance** — Automatic recovery from failures. A single bad LLM response or tool crash never takes down the system.
+- **True Concurrency** — Messages, LLM calls, and tool executions run concurrently across all users without thread pools or locks.
+- **Soft real-time** — Responsive streaming even under heavy load; no single user can starve others.
+- **Low memory footprint** — The entire gateway idles at ~50 MB, making it perfect for personal VPS or Raspberry Pi.
 
 ## Architecture
 
@@ -165,3 +162,7 @@ Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) for gu
 ## License
 
 [MIT](LICENSE) © Riza Fahmi
+
+## Credits
+
+Inspired by and simplified from [openclaw](https://github.com/openclaw/openclaw).
