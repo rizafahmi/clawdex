@@ -22,14 +22,14 @@ Phase 2 complete and working.
 ## New Dependencies
 
 ```elixir
-{:phoenix, "~> 1.7"},                  # Full Phoenix (replaces raw Bandit)
+{:phoenix, "~> 1.8"},                  # Full Phoenix (replaces raw Bandit)
 {:phoenix_live_view, "~> 1.0"},         # LiveView for WebChat + Control UI
 {:phoenix_html, "~> 4.1"},
 {:phoenix_live_reload, "~> 1.5", only: :dev},
 {:esbuild, "~> 0.8", runtime: Mix.env() == :dev},
 {:tailwind, "~> 0.2", runtime: Mix.env() == :dev},
 {:heroicons, "~> 0.5"},
-{:burrito, "~> 1.0", only: :prod},      # CLI binary packaging (optional)
+{:burrito, "~> 1.0"},                  # CLI binary packaging (use env: :prod for release builds)
 ```
 
 ---
@@ -70,7 +70,10 @@ end
 - Timeout: 60 seconds (configurable).
 - Captures stdout + stderr.
 - Returns exit code.
-- **Security:** commands run as the Elixir process user. No sandbox in Phase 3 (added in Phase 5).
+- **Security:** 
+  - Commands run as the Elixir process user. No sandbox in Phase 3 (added in Phase 5).
+  - **Safe Mode**: Configurable flag (default `true`) that requires user confirmation via UI/CLI before executing potentially unsafe commands (e.g. `rm`).
+  - **Output Handling**: Uses `Port` to stream output and enforces a maximum output buffer (e.g. 10KB) to prevent OOM/context overflow.
 
 #### `Clawdex.Tool.Read`
 
@@ -87,8 +90,9 @@ end
 ```
 
 **Behavior:**
-- Resolves path relative to workspace root.
+- Resolves path relative to workspace.
 - Rejects paths outside workspace (path traversal guard).
+- **Security**: Uses `Path.expand(path, workspace_root)` to strictly validate the final path is within the workspace.
 - Returns content with line numbers prefixed.
 - Supports line range for large files.
 
@@ -109,6 +113,7 @@ end
 - Resolves path relative to workspace.
 - Creates parent directories if needed.
 - Rejects paths outside workspace.
+- **Security**: Uses `Path.expand(path, workspace_root)` to strictly validate the final path is within the workspace. Checks for symlinks if possible.
 
 #### `Clawdex.Tool.Edit`
 
@@ -120,9 +125,15 @@ end
 {
   "path": "src/main.py",
   "old_str": "print('hello')",
-  "new_str": "print('goodbye')"
+  "new_str": "print('goodbye')",
+  "start_line": 10,
+  "end_line": 20
 }
 ```
+
+**Behavior:**
+- **Uniqueness Constraint**: If `old_str` matches multiple locations in the file (or the specified line range), the tool parses the file and **fails** with an error requesting more specific context or line numbers.
+- **Verification**: Reads back the file after edit to confirm the change was applied correctly.
 
 ### Tool Registry
 
@@ -258,7 +269,10 @@ Full-featured chat interface:
 **LiveView:** `ClawdexWeb.ChatLive`
 
 **Implementation:**
-- Connects to `"gateway:control"` channel internally (or calls Router directly).
+**Implementation:**
+- **Architecture**: Helper process (or LiveView itself) subscribes to `Clawdex.Gateway.PubSub` on `"gateway:control"` topic.
+- **Streaming**: Events from the Gateway (e.g., tool output, LLM chunks) are broadcast via PubSub and handled in `handle_info`.
+- **Note**: Does *not* loopback via WebSocket to the Gateway; uses internal messaging for efficiency.
 - Uses LiveView Streams for efficient message list rendering.
 - Streaming chunks arrive via `handle_info` from the Router process.
 
@@ -385,6 +399,7 @@ Clawdex.Application
 | `tool/write_test.exs` | Unit — file creation, directory creation |
 | `tool/edit_test.exs` | Unit — string replacement, uniqueness check |
 | `tool/registry_test.exs` | Unit — list tools, get by name, schema generation |
+| `tool/safety_test.exs` | Unit - verify Safe Mode prompts and path traversal guards |
 | `router_test.exs` (updated) | Integration — tool loop with mocked LLM |
 | `gateway_channel_test.exs` | WS — protocol methods, auth, push events |
 | `chat_live_test.exs` | LiveView — message send, streaming display |
