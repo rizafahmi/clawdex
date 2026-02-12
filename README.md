@@ -1,52 +1,108 @@
 # Clawdex
 
-A personal AI assistant gateway. Messages arrive on Telegram, route to LLMs (Google Gemini, Anthropic Claude, OpenRouter), and replies go back. Conversations are persisted to SQLite, ensuring they survive application restarts.
+[![CI](https://github.com/rizafahmi/clawdex/actions/workflows/ci.yml/badge.svg)](https://github.com/rizafahmi/clawdex/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
+A personal AI assistant gateway built on the BEAM. Messages arrive on Telegram (or via WebSocket), route to LLMs (Gemini, Anthropic Claude, OpenRouter), and replies stream back. Conversations are persisted to SQLite, ensuring they survive restarts.
 
 Simplified Elixir port of [openclaw](https://github.com/openclaw/openclaw).
+
+## Why Elixir?
+
+Clawdex is built on Elixir and the Erlang/OTP platform, giving it properties that are hard to achieve in other stacks:
+
+- **Lightweight processes** — Each user conversation runs in its own isolated BEAM process, using only ~2 KB of memory. Thousands of concurrent sessions cost almost nothing.
+- **Fault tolerance** — OTP supervision trees automatically restart crashed processes. A single bad LLM response or tool failure never takes down the system.
+- **Concurrency** — Messages, LLM calls, and tool executions run concurrently across all users with no thread pools, mutexes, or async/await boilerplate.
+- **Soft real-time** — BEAM's preemptive scheduler ensures responsive streaming even under load. No single user can starve others.
+- **Hot code upgrades** — Update the running system without dropping connections (OTP release upgrades).
+- **Low memory footprint** — The entire gateway idles at ~50 MB, making it perfect for a personal VPS or Raspberry Pi.
+
+## Architecture
+
+```
+┌──────────────────────────────────────────────┐
+│                   Channels                   │
+│  Telegram Bot  │  WebSocket Gateway  │  Web  │
+└──────┬─────────┴──────────┬──────────┴───┬───┘
+       │                    │              │
+       ▼                    ▼              ▼
+┌──────────────────────────────────────────────┐
+│               Router / Commands              │
+│     /model  /reset  /status  /compact        │
+└──────────────────────┬───────────────────────┘
+                       │
+       ┌───────────────┼───────────────┐
+       ▼               ▼               ▼
+┌────────────┐  ┌────────────┐  ┌────────────┐
+│  Sessions  │  │   Tools    │  │  LLM Layer │
+│ (per-user  │  │ bash,read, │  │  Gemini    │
+│  GenServer)│  │ write,edit │  │  Anthropic │
+│            │  │            │  │  OpenRouter│
+└─────┬──────┘  └────────────┘  └────────────┘
+      │
+      ▼
+┌────────────┐
+│   SQLite   │
+│ (Ecto Repo)│
+└────────────┘
+```
+
+**Key modules:**
+
+| Module | Role |
+|---|---|
+| `Clawdex.Session.Server` | Per-user GenServer managing conversation state |
+| `Clawdex.Router` | Dispatches messages and slash commands |
+| `Clawdex.Gateway` | Orchestrates LLM calls with tool loop |
+| `Clawdex.LLM.*` | Provider adapters (Gemini, Anthropic, OpenRouter) |
+| `Clawdex.Tool.*` | Sandboxed tool implementations |
+| `Clawdex.Channel.Telegram` | Telegram bot channel |
+| `ClawdexWeb.GatewayChannel` | WebSocket channel for real-time API |
 
 ## Setup
 
 1. Copy the example config and fill in your keys:
 
-```sh
-mkdir -p ~/.clawdex
-cp config/config.example.json ~/.clawdex/config.json
-```
+   ```sh
+   mkdir -p ~/.clawdex
+   cp config/config.example.json ~/.clawdex/config.json
+   ```
 
 2. Edit `~/.clawdex/config.json` with your actual credentials:
 
-```json
-{
-  "agent": {
-    "model": "gemini/gemini-2.5-flash",
-    "systemPrompt": "You are a helpful personal assistant.",
-    "maxHistoryMessages": 50,
-    "contextWindowPercent": 80
-  },
-  "gemini": {
-    "apiKey": "your-gemini-api-key-here"
-  },
-  "anthropic": {
-    "apiKey": "your-anthropic-api-key-here"
-  },
-  "openrouter": {
-    "apiKey": "your-openrouter-key-here"
-  },
-  "channels": {
-    "telegram": {
-      "botToken": "123456789:ABCDefGHIJKlmnOPQRstUVwxYZ"
-    }
-  }
-}
-```
+   ```json
+   {
+     "agent": {
+       "model": "gemini/gemini-2.5-flash",
+       "systemPrompt": "You are a helpful personal assistant.",
+       "maxHistoryMessages": 50,
+       "contextWindowPercent": 80
+     },
+     "gemini": {
+       "apiKey": "your-gemini-api-key-here"
+     },
+     "anthropic": {
+       "apiKey": "your-anthropic-api-key-here"
+     },
+     "openrouter": {
+       "apiKey": "your-openrouter-key-here"
+     },
+     "channels": {
+       "telegram": {
+         "botToken": "123456789:ABCDefGHIJKlmnOPQRstUVwxYZ"
+       }
+     }
+   }
+   ```
 
-You can also use environment variables instead of the config file:
+   You can also use environment variables instead of the config file:
 
-- `GEMINI_API_KEY` — falls back when `gemini.apiKey` is missing
-- `ANTHROPIC_API_KEY` — falls back when `anthropic.apiKey` is missing
-- `OPENROUTER_API_KEY` — falls back when `openrouter.apiKey` is missing
-- `TELEGRAM_BOT_TOKEN` — falls back when `channels.telegram.botToken` is missing
-- `CLAWDEX_CONFIG_PATH` — override the config file location
+   - `GEMINI_API_KEY` — falls back when `gemini.apiKey` is missing
+   - `ANTHROPIC_API_KEY` — falls back when `anthropic.apiKey` is missing
+   - `OPENROUTER_API_KEY` — falls back when `openrouter.apiKey` is missing
+   - `TELEGRAM_BOT_TOKEN` — falls back when `channels.telegram.botToken` is missing
+   - `CLAWDEX_CONFIG_PATH` — override the config file location
 
 3. Get a Telegram bot token from [@BotFather](https://t.me/BotFather).
 
@@ -89,3 +145,23 @@ Run formatting, linting (Credo), and static analysis (Dialyzer):
 ```sh
 mix check
 ```
+
+## Roadmap
+
+Clawdex is developed in phases. See the [docs/](docs/) directory for detailed specs:
+
+| Phase | Status | Focus |
+|---|---|---|
+| 1 — MVP | ✅ Complete | Core gateway, Telegram, LLM adapters, sessions |
+| 2 — Multi-channel | ✅ Complete | Streaming, persistence, slash commands |
+| 3 — Tools & Web | 🚧 In Progress | Tool execution, WebSocket API, LiveView UI |
+| 4 — Plugins & Memory | 📋 Planned | Plugin system, RAG, cron, webhooks |
+| 5 — Full Platform | 📋 Planned | Multi-model failover, voice, sandbox |
+
+## Contributing
+
+Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+
+## License
+
+[MIT](LICENSE) © Riza Fahmi

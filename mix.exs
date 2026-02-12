@@ -10,7 +10,14 @@ defmodule Clawdex.MixProject do
       start_permanent: Mix.env() == :prod,
       deps: deps(),
       aliases: aliases(),
-      listeners: [Phoenix.CodeReloader]
+      listeners: [Phoenix.CodeReloader],
+      description: "A personal AI assistant gateway built on the BEAM",
+      source_url: "https://github.com/rizafahmi/clawdex",
+      homepage_url: "https://github.com/rizafahmi/clawdex",
+      docs: [
+        main: "readme",
+        extras: ["README.md", "CHANGELOG.md", "CONTRIBUTING.md", "LICENSE"]
+      ]
     ]
   end
 

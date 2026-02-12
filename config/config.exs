@@ -13,7 +13,7 @@ config :clawdex, ClawdexWeb.Endpoint,
     layout: false
   ],
   pubsub_server: Clawdex.PubSub,
-  live_view: [signing_salt: "clawdex_lv_salt"]
+  live_view: [signing_salt: "O/djPQ6V4dEAr6pvP0j6zw=="]
 
 config :esbuild,
   version: "0.25.0",

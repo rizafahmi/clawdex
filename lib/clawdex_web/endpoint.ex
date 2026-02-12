@@ -4,7 +4,7 @@ defmodule ClawdexWeb.Endpoint do
   @session_options [
     store: :cookie,
     key: "_clawdex_key",
-    signing_salt: "clawdex_salt",
+    signing_salt: "oti10yozg9Fjg4Y/LUxNsQ==",
     same_site: "Lax"
   ]
 
