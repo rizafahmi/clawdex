@@ -7,7 +7,7 @@ A personal AI assistant gateway built on the BEAM. Messages arrive on Telegram (
 
 ## Core Features
 
-Clawdex leverages the Erlang/OTP platform to provide an extremely robust and efficient runtime:
+Clawdex leverages the Elixir/OTP platform to provide an extremely robust and efficient runtime:
 
 - **Lightweight efficiency** — Each user conversation runs in its own isolated process, using only ~2 KB of memory. Thousands of concurrent sessions cost almost nothing.
 - **Fault tolerance** — Automatic recovery from failures. A single bad LLM response or tool crash never takes down the system.
@@ -111,9 +111,9 @@ Clawdex leverages the Erlang/OTP platform to provide an extremely robust and eff
 ## Running
 
 ```sh
-mix deps.get
-mix ecto.setup
-mix run --no-halt
+mix setup
+mix phx.server
+
 ```
 
 A health endpoint will be available at `http://localhost:4000/health`.

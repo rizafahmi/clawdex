@@ -11,7 +11,7 @@ Thanks for your interest in contributing! Here's how to get started.
    ```sh
    git clone https://github.com/rizafahmi/clawdex.git
    cd clawdex
-   mix deps.get
+   mix setup
    ```
 
 3. **Copy the example config:**
