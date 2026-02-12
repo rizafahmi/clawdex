@@ -9,7 +9,8 @@ defmodule Clawdex.MixProject do
       elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,
       deps: deps(),
-      aliases: aliases()
+      aliases: aliases(),
+      listeners: [Phoenix.CodeReloader]
     ]
   end
 
@@ -25,23 +26,37 @@ defmodule Clawdex.MixProject do
 
   defp deps do
     [
+      {:phoenix, "~> 1.8"},
+      {:phoenix_html, "~> 4.1"},
+      {:phoenix_live_view, "~> 1.0"},
+      {:phoenix_live_reload, "~> 1.5", only: :dev},
+      {:esbuild, "~> 0.8", runtime: Mix.env() == :dev},
+      {:tailwind, "~> 0.2", runtime: Mix.env() == :dev},
+      {:heroicons, "~> 0.5"},
+      {:bandit, "~> 1.5"},
       {:req, "~> 0.5"},
       {:jason, "~> 1.4"},
-      {:plug, "~> 1.16"},
-      {:bandit, "~> 1.5"},
       {:ecto_sql, "~> 3.12"},
       {:ecto_sqlite3, "~> 0.17"},
       {:bypass, "~> 2.1", only: :test},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
+      {:earmark, "~> 1.4"},
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false}
     ]
   end
 
   defp aliases do
     [
-      setup: ["deps.get", "ecto.setup"],
+      setup: ["deps.get", "ecto.setup", "assets.setup", "assets.build"],
       "ecto.setup": ["ecto.create", "ecto.migrate"],
       "ecto.reset": ["ecto.drop", "ecto.setup"],
+      "assets.setup": ["tailwind.install --if-missing", "esbuild.install --if-missing"],
+      "assets.build": ["tailwind clawdex", "esbuild clawdex"],
+      "assets.deploy": [
+        "tailwind clawdex --minify",
+        "esbuild clawdex --minify",
+        "phx.digest"
+      ],
       check: ["format", "credo --strict", "dialyzer"]
     ]
   end

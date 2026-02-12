@@ -3,7 +3,20 @@
     "model": "gemini/gemini-2.5-flash",
     "systemPrompt": "You are a helpful personal assistant.",
     "maxHistoryMessages": 50,
-    "contextWindowPercent": 80
+    "contextWindowPercent": 80,
+    "workspace": "~/.clawdex/workspace",
+    "tools": {
+      "allow": ["bash", "read", "write", "edit"],
+      "deny": []
+    },
+    "maxToolIterations": 10
+  },
+  "gateway": {
+    "port": 4000,
+    "bind": "loopback",
+    "auth": {
+      "token": "my-secret-token"
+    }
   },
   "gemini": {
     "apiKey": "your-gemini-api-key-here"
