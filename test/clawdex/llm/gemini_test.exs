@@ -102,4 +102,32 @@ defmodule Clawdex.LLM.GeminiTest do
 
     assert {:ok, "OK"} = Gemini.chat(messages, opts)
   end
+
+  test "handles multiple parts in response", %{bypass: bypass} do
+    Bypass.expect_once(bypass, "POST", "/v1beta/models/gemini-pro:generateContent", fn conn ->
+      conn
+      |> Plug.Conn.put_resp_content_type("application/json")
+      |> Plug.Conn.resp(
+        200,
+        Jason.encode!(%{
+          "candidates" => [
+            %{
+              "content" => %{
+                "parts" => [
+                  %{"text" => "Part 1 "},
+                  %{"text" => "Part 2"}
+                ]
+              }
+            }
+          ]
+        })
+      )
+    end)
+
+    base_url = "http://localhost:#{bypass.port}/v1beta/models"
+    messages = [%{"role" => "user", "content" => "Hello"}]
+    opts = [api_key: "test-key", model: "gemini-pro", base_url: base_url]
+
+    assert {:ok, "Part 1 Part 2"} = Gemini.chat(messages, opts)
+  end
 end

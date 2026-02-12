@@ -44,7 +44,7 @@ defmodule Clawdex.LLM.OpenRouter do
   end
 
   defp extract_text(%{"choices" => [%{"message" => %{"content" => content}} | _]}) do
-    {:ok, content}
+    {:ok, content || ""}
   end
 
   defp extract_text(body) do

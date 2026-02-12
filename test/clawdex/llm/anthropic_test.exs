@@ -113,5 +113,28 @@ defmodule Clawdex.LLM.AnthropicTest do
       opts = @opts ++ [base_url: "http://localhost:#{bypass.port}"]
       assert {:error, :rate_limited} = Anthropic.chat(messages, opts)
     end
+
+    test "handles multiple content blocks" do
+      bypass = Bypass.open()
+
+      Bypass.expect_once(bypass, "POST", "/messages", fn conn ->
+        resp = %{
+          "content" => [
+            %{"type" => "text", "text" => "Part 1 "},
+            %{"type" => "image", "source" => "..."},
+            %{"type" => "text", "text" => "Part 2"}
+          ],
+          "role" => "assistant"
+        }
+
+        conn
+        |> Plug.Conn.put_resp_content_type("application/json")
+        |> Plug.Conn.resp(200, Jason.encode!(resp))
+      end)
+
+      messages = [%{"role" => "user", "content" => "Hi"}]
+      opts = @opts ++ [base_url: "http://localhost:#{bypass.port}"]
+      assert {:ok, "Part 1 Part 2"} = Anthropic.chat(messages, opts)
+    end
   end
 end

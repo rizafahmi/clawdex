@@ -50,7 +50,13 @@ defmodule Clawdex.LLM.Anthropic do
   defp maybe_put_system(body, ""), do: body
   defp maybe_put_system(body, system), do: Map.put(body, "system", system)
 
-  defp extract_text(%{"content" => [%{"type" => "text", "text" => text} | _]}) do
+  defp extract_text(%{"content" => content}) when is_list(content) do
+    text =
+      Enum.map_join(content, "", fn
+        %{"type" => "text", "text" => text} -> text
+        _ -> ""
+      end)
+
     {:ok, text}
   end
 

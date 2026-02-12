@@ -82,5 +82,25 @@ defmodule Clawdex.LLM.OpenRouterTest do
       opts = @opts ++ [base_url: "http://localhost:#{bypass.port}"]
       assert {:error, :rate_limited} = OpenRouter.chat(messages, opts)
     end
+
+    test "handles null content (e.g. tool calls)" do
+      bypass = Bypass.open()
+
+      Bypass.expect_once(bypass, "POST", "/chat/completions", fn conn ->
+        resp = %{
+          "choices" => [
+            %{"message" => %{"role" => "assistant", "content" => nil}}
+          ]
+        }
+
+        conn
+        |> Plug.Conn.put_resp_content_type("application/json")
+        |> Plug.Conn.resp(200, Jason.encode!(resp))
+      end)
+
+      messages = [%{"role" => "user", "content" => "Hi"}]
+      opts = @opts ++ [base_url: "http://localhost:#{bypass.port}"]
+      assert {:ok, ""} = OpenRouter.chat(messages, opts)
+    end
   end
 end

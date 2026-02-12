@@ -59,8 +59,15 @@ defmodule Clawdex.LLM.Gemini do
   end
 
   defp extract_text(%{
-         "candidates" => [%{"content" => %{"parts" => [%{"text" => text} | _]}} | _]
-       }) do
+         "candidates" => [%{"content" => %{"parts" => parts}} | _]
+       })
+       when is_list(parts) do
+    text =
+      Enum.map_join(parts, "", fn
+        %{"text" => text} -> text
+        _ -> ""
+      end)
+
     {:ok, text}
   end
 
